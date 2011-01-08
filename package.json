@@ -14,5 +14,5 @@
     'url' : 'http://github.com/havard/node-openid/raw/master/LICENSE' }],
   'directories' : {
     'lib' : './lib' },
-  'main' : {
-    'openid' : './openid.js' } }
+  'main' : './openid.js'
+}
