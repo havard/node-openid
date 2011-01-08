@@ -16,9 +16,10 @@ The library can be [reviewed and retrieved from GitHub](http://github.com/havard
 
 If you use [`npm`](http://npmjs.org), simply do `npm install openid`.
 
-Download, move `lib` folder and `openid.js` to where you want them, and
-`require('openid')`. (Remember to do `require.paths.unshift` on the directory
-you put the file in unless it's already in your `require.paths`.)
+If you don't use npm, you should. Alternatively, you can download the library, and move the 
+`lib` folder and `openid.js` to where you want them, and then `require('openid')`. 
+(Remember to do `require.paths.unshift` on the directory you put the file in unless it's 
+already in your `require.paths`.)
 
 ## Examples
 
