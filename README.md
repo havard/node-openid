@@ -3,6 +3,7 @@
 OpenID for node.js is (yes, you guessed it) an OpenID implementation for node.js. 
 
 Highlights and features include:
+
 - Full OpenID 1.1/OpenID 2.0 compliant Relying Party (client) implementation
 - Very simple API
 - Simple extension points for association state
@@ -69,6 +70,7 @@ using OpenID for node.js for authentication:
 
 To provide a way to save/load association state, you need to mix-in two functions in
 the `openid` module:
+
  - `saveAssociation(type, handle, secret, expiry_time)` is called when a new association is established during authentication
  - `loadAssociation(handle)` is used to retrieve the association identified by `handle` when verification happens
 
