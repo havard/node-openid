@@ -732,7 +732,7 @@ openid.verifyAssertion = function(requestOrUrl)
     return { authenticated: false, error: 'Provider signature is invalid or expired' };
   }
 
-  return { authenticated : true , identifier: assertionUrl.query['openid.claimed_identifier'] };
+  return { authenticated : true , identifier: _param(assertionUrl.query, 'openid.claimed_id') };
 }
 
 function _getAssertionError(params)
@@ -741,11 +741,11 @@ function _getAssertionError(params)
   {
     return 'Assertion request is malformed';
   }
-  else if(params['openid.mode'] == 'error')
+  else if(_param(params, 'openid.mode') == 'error')
   {
-    return params['openid.error'];
+    return _param(params, 'openid.error');
   }
-  else if(params['openid.mode'] == 'cancel')
+  else if(_param(params, 'openid.mode') == 'cancel')
   {
     return 'Authentication cancelled';
   }
@@ -755,29 +755,29 @@ function _getAssertionError(params)
 
 function _checkValidHandle(params)
 {
-  return !_isDef(params['openid.invalidate_handle']);
+  return !_isDef(_param(params, 'openid.invalidate_handle'));
 }
 
 function _checkSignature(params)
 {
-  if(!_isDef(params['openid.signed']) || 
-    !_isDef(params['openid.sig']))
+  if(!_isDef(_param(params, 'openid.signed')) || 
+    !_isDef(_param(params, 'openid.sig')))
   {
     return false;
   }
 
-  var association = openid.loadAssociation(params['openid.assoc_handle']);
+  var association = openid.loadAssociation(_param(params, 'openid.assoc_handle'));
   if(association.expiry_time < new Date().getTime())
   {
     return false;
   }
 
   var message = '';
-  var signedParams = params['openid.signed'].split(',');
+  var signedParams = _param(params, 'openid.signed').split(',');
   for(var index in signedParams)
   {
     var param = signedParams[index];
-    var value = params['openid.' + param];
+    var value = _param(params, 'openid.' + param);
     if(!_isDef(value))
     {
       return false;
@@ -789,11 +789,22 @@ function _checkSignature(params)
   hmac.update(message);
   var ourSignature = hmac.digest('base64');
 
-  if(ourSignature != params['openid.sig'])
+  if(ourSignature != _param(params, 'openid.sig'))
   {
-    console.log('Signature mismatch: ' + ourSignature + ' != ' + params['openid.sig']);
+    console.log('Signature mismatch: ' + ourSignature + ' != ' + _param(params, 'openid.sig'));
     return false;
   }
 
   return true;
+}
+
+// Recursive parameter lookup for node v0.2.x 
+function _param(params, key) {
+  if (!params[key] && process.version.match(/^v0\.2\./)) {
+    var parts = key.split('.');
+    var first = parts.shift();
+    return params[first] ? _param(params[first], parts.join('.')) : undefined;
+  }
+
+  return params[key];
 }
