@@ -515,7 +515,6 @@ openid.associate = function(provider, callback, algorithm)
   {
     if(statusCode != 200 || data == null)
     {
-      console.log(data);
       return callback({ 
         error: 'HTTP request failed', 
         error_code: ''  + statusCode, 
@@ -790,13 +789,7 @@ function _checkSignature(params)
   hmac.update(message);
   var ourSignature = hmac.digest('base64');
 
-  if(ourSignature != _param(params, 'openid.sig'))
-  {
-    console.log('Signature mismatch: ' + ourSignature + ' != ' + _param(params, 'openid.sig'));
-    return false;
-  }
-
-  return true;
+  return ourSignature == _param(params, 'openid.sig');
 }
 
 // Recursive parameter lookup for node v0.2.x 
