@@ -177,9 +177,10 @@ function _post(getUrl, data, callback)
   {
     path += '?' + querystring.stringify(getUrl.query)
   }
+  var encodedData = _encodePostData(data);
   var req = client.request('POST', path, { 'Host' : getUrl.hostname, 'Content-Type':
-  'application/x-www-form-urlencoded' });
-  req.end(_encodePostData(data));
+  'application/x-www-form-urlencoded', 'Content-Length': encodedData.length });
+  req.end(encodedData);
   req.on('response', function(res)
   {
     var data = '';
@@ -387,7 +388,7 @@ function _resolveXri(xriUrl, callback, hops)
         }
         else
         {
-          callback(_parseXrds(data));
+          callback(_parseXrds(xrdsLocation, data));
         }
       });
     }
