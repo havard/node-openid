@@ -114,8 +114,9 @@ function _buildUrl(theUrl, params)
   return url.format(theUrl);
 }
 
-function _get(getUrl, params, callback)
+function _get(getUrl, params, callback, redirects)
 {
+  redirects = redirects || 5;
   getUrl = url.parse(_buildUrl(getUrl, params), true);
 
   var path = getUrl.pathname;
@@ -150,13 +151,21 @@ function _get(getUrl, params, callback)
 
     res.on('end', function()
     {
-      callback(data, res.headers, res.statusCode);
+      if(res.headers.location && --redirects)
+      {
+        _get(res.headers.location, params, callback, redirects);
+      }
+      else
+      {
+        callback(data, res.headers, res.statusCode);
+      }
     });
   });
 }
 
-function _post(getUrl, data, callback)
+function _post(getUrl, data, callback, redirects)
 {
+  redirects = redirects || 5;
   getUrl = url.parse(getUrl, true);
 
   var client = http.createClient(
@@ -191,7 +200,14 @@ function _post(getUrl, data, callback)
 
     res.on('end', function()
     {
-      callback(data, res.headers, res.statusCode);
+      if(res.headers.location && --redirects)
+      {
+        _post(res.headers.location, params, callback, redirects);
+      }
+      else
+      {
+        callback(data, res.headers, res.statusCode);
+      }
     });
   });
 }

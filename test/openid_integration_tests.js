@@ -37,6 +37,16 @@ exports.testResolveRyanXri = function(test)
     });
 }
 
+exports.testResolveRedirect = function(test)
+{
+  openid.discover('http://www.myopenid.com/xrds?username=swatinem.myopenid.com',
+    function(data)
+    {
+      assert.equal(3, data.length);
+      test.done();
+    });
+}
+
 exports.testResolveGoogle = function(test)
 {
   openid.discover('http://www.google.com/accounts/o8/id',
