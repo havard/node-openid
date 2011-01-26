@@ -741,25 +741,26 @@ openid.verifyAssertion = function(requestOrUrl)
   }
 
   assertionUrl = url.parse(assertionUrl, true);
+  var params = _fixParams(assertionUrl.query);
 
-  var assertionError = _getAssertionError(assertionUrl.query);
+  var assertionError = _getAssertionError(params);
   if(assertionError)
   {
     return { authenticated: false, error: assertionError };
   }
-  if(!_checkValidHandle(assertionUrl.query))
+  if(!_checkValidHandle(params))
   {
     return { authenticated: false, error: 'Association handle has been invalidated' };
   }
 
-  if(!_checkSignature(assertionUrl.query))
+  if(!_checkSignature(params))
   {
     return { authenticated: false, error: 'Provider signature is invalid or expired' };
   }
 
   // make sure to remove already used associations to prevent replay
-  openid.removeAssociation(_param(assertionUrl.query, 'openid.assoc_handle'));
-  return { authenticated : true , identifier: _param(assertionUrl.query, 'openid.claimed_id') };
+  openid.removeAssociation(params['openid.assoc_handle']);
+  return { authenticated : true , identifier: params['openid.claimed_id'] };
 }
 
 function _getAssertionError(params)
@@ -768,11 +769,11 @@ function _getAssertionError(params)
   {
     return 'Assertion request is malformed';
   }
-  else if(_param(params, 'openid.mode') == 'error')
+  else if(params['openid.mode'] == 'error')
   {
-    return _param(params, 'openid.error');
+    return params['openid.error'];
   }
-  else if(_param(params, 'openid.mode') == 'cancel')
+  else if(params['openid.mode'] == 'cancel')
   {
     return 'Authentication cancelled';
   }
@@ -782,29 +783,29 @@ function _getAssertionError(params)
 
 function _checkValidHandle(params)
 {
-  return !_isDef(_param(params, 'openid.invalidate_handle'));
+  return !_isDef(params['openid.invalidate_handle']);
 }
 
 function _checkSignature(params)
 {
-  if(!_isDef(_param(params, 'openid.signed')) || 
-    !_isDef(_param(params, 'openid.sig')))
+  if(!_isDef(params['openid.signed']) ||
+    !_isDef(params['openid.sig']))
   {
     return false;
   }
 
-  var association = openid.loadAssociation(_param(params, 'openid.assoc_handle'));
+  var association = openid.loadAssociation(params['openid.assoc_handle']);
   if(!association)
   {
     return false;
   }
 
   var message = '';
-  var signedParams = _param(params, 'openid.signed').split(',');
+  var signedParams = params['openid.signed'].split(',');
   for(var index in signedParams)
   {
     var param = signedParams[index];
-    var value = _param(params, 'openid.' + param);
+    var value = params['openid.' + param];
     if(!_isDef(value))
     {
       return false;
@@ -816,16 +817,21 @@ function _checkSignature(params)
   hmac.update(message);
   var ourSignature = hmac.digest('base64');
 
-  return ourSignature == _param(params, 'openid.sig');
+  return ourSignature == params['openid.sig'];
 }
 
 // Recursive parameter lookup for node v0.2.x 
-function _param(params, key) {
-  if (!params[key] && process.version.match(/^v0\.2\./)) {
-    var parts = key.split('.');
-    var first = parts.shift();
-    return params[first] ? _param(params[first], parts.join('.')) : undefined;
+function _fixParams(params) {
+  if (!process.version.match(/^v0\.2\./))
+    return params;
+  for (var key in params) {
+    if (typeof(params[key]) == "object") {
+      _fixParams(params[key]);
+      for (var childkey in params[key]) {
+        params[key + "." + childkey] = params[key][childkey];
+      }
+      delete params[key];
+    }
   }
-
-  return params[key];
+  return params;
 }
