@@ -77,7 +77,10 @@ function _xor(a, b)
 
 openid.saveAssociation = function(type, handle, secret, expiry_time)
 {
-  _associations[handle] = { type : type, secret: secret, expiry_time: expiry_time};
+  setTimeout(function() {
+    openid.removeAssociation(handle);
+  }, expiry_time);
+  _associations[handle] = {type : type, secret: secret};
 }
 
 openid.loadAssociation = function(handle)
@@ -88,6 +91,12 @@ openid.loadAssociation = function(handle)
   }
 
   return null;
+}
+
+openid.removeAssociation = function(handle)
+{
+  delete _associations[handle];
+  return true;
 }
 
 function _buildUrl(theUrl, params)
@@ -585,8 +594,8 @@ openid.associate = function(provider, callback, algorithm)
         secret = convert.base64.encode(_xor(encMacKey, sharedSecret));
       }
 
-      openid.saveAssociation(hashAlgorithm, 
-        data.assoc_handle, secret, new Date().getTime() + data.expires_in);
+      openid.saveAssociation(hashAlgorithm,
+        data.assoc_handle, secret, data.expires_in * 1);
 
       callback(data);
     }
@@ -748,6 +757,8 @@ openid.verifyAssertion = function(requestOrUrl)
     return { authenticated: false, error: 'Provider signature is invalid or expired' };
   }
 
+  // make sure to remove already used associations to prevent replay
+  openid.removeAssociation(_param(assertionUrl.query, 'openid.assoc_handle'));
   return { authenticated : true , identifier: _param(assertionUrl.query, 'openid.claimed_id') };
 }
 
@@ -783,7 +794,7 @@ function _checkSignature(params)
   }
 
   var association = openid.loadAssociation(_param(params, 'openid.assoc_handle'));
-  if(association.expiry_time < new Date().getTime())
+  if(!association)
   {
     return false;
   }
