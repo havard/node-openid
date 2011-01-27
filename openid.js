@@ -846,15 +846,22 @@ function _fixParams(params) {
   return params;
 }
 
+/* ----- Extensions ----- */
+function _getExtensionAlias(params, ns) {
+  for (var k in params)
+    if (params[k] == ns)
+      return k.replace("openid.ns.", "");
+}
 
 /* Simple Registration Extension: http://openid.net/specs/openid-simple-registration-extension-1_1-01.html */
 var sreg_keys = ["nickname", "email", "fullname", "dob", "gender", "postcode", "country", "language", "timezone"];
 openid.SimpleRegistration = function SimpleRegistration(options) {
   if (options.params) { // parsing the successful result
-    for(var i in sreg_keys) {
+    var extension = _getExtensionAlias(options.params, "http://openid.net/extensions/sreg/1.1") || "sreg";
+    for (var i in sreg_keys) {
       var key = sreg_keys[i];
-      if (options.params["openid.sreg." + key])
-        this[key] = options.params["openid.sreg." + key];
+      if (options.params["openid." + extension + "." + key])
+        this[key] = options.params["openid." + extension + "." + key];
     }
   } else { // constructing the params for the auth request
     this.requestParams = {"openid.ns.sreg": "http://openid.net/extensions/sreg/1.1"};
@@ -862,7 +869,7 @@ openid.SimpleRegistration = function SimpleRegistration(options) {
       this.requestParams["openid.sreg.policy_url"] = options.policy_url;
     var required = [];
     var optional = [];
-    for(var i in sreg_keys) {
+    for (var i in sreg_keys) {
       var key = sreg_keys[i];
       if (options[key]) {
         if (options[key] == "required")
@@ -870,10 +877,81 @@ openid.SimpleRegistration = function SimpleRegistration(options) {
         else
           optional.push(key);
       }
-      if(required.length)
+      if (required.length)
         this.requestParams["openid.sreg.required"] = required.join(",");
-      if(optional.length)
+      if (optional.length)
         this.requestParams["openid.sreg.optional"] = optional.join(",");
     }
+  }
+}
+
+/* User Interface Extension: http://svn.openid.net/repos/specifications/user_interface/1.0/trunk/openid-user-interface-extension-1_0.html */
+openid.UserInterface = function UserInterface(options) {
+  if (typeof(options) != "object")
+    options = {mode: options || "popup"};
+  this.requestParams = {"openid.ns.ui": "http://specs.openid.net/extensions/ui/1.0"};
+  for (var k in options) {
+    this.requestParams["openid.ui." + k] = options[k];
+  }
+}
+
+/* Attribute Exchange Extension: http://openid.net/specs/openid-attribute-exchange-1_0.html */
+/* also see http://www.axschema.org/types/ and http://code.google.com/intl/de-DE/apis/accounts/docs/OpenID.html#Parameters */
+// TODO: count handling
+var attributeMapping = {
+    "http://axschema.org/contact/country/home": "country"
+  , "http://axschema.org/contact/email": "email"
+  , "http://axschema.org/namePerson/first": "firstname"
+  , "http://axschema.org/pref/language": "language"
+  , "http://axschema.org/namePerson/last": "lastname"
+  // the following are not in the google document:
+  , "http://axschema.org/namePerson/friendly": "nickname"
+  , "http://axschema.org/namePerson": "fullname"
+};
+openid.AttributeExchange = function AttributeExchange(options) {
+  if (options.params) { // parsing the successful result
+    var extension = _getExtensionAlias(options.params, "http://openid.net/srv/ax/1.0") || "ax";
+    var regex = new RegExp("^openid\\." + extension + "\\.(value|type)\\.(\\w+)$");
+    var aliases = {};
+    var values = {};
+    for (var k in options.params) {
+      var matches = k.match(regex);
+      if (!matches)
+        continue;
+      if (matches[1] == "type")
+        aliases[options.params[k]] = matches[2];
+      else
+        values[matches[2]] = options.params[k];
+    }
+    for (var ns in aliases) {
+      if (aliases[ns] in values)
+        this[ns] = values[aliases[ns]];
+    }
+  } else { // constructing the params for the auth request
+    this.requestParams = {"openid.ns.ax": "http://openid.net/srv/ax/1.0",
+      "openid.ax.mode" : "fetch_request"};
+    var required = [];
+    var optional = [];
+    for (var ns in options) {
+      if (options[ns] == "required")
+        required.push(ns);
+      else
+        optional.push(ns);
+    }
+    var self = this;
+    required = required.map(function (ns, i) {
+      var attr = attributeMapping[ns] || "req" + i;
+      self.requestParams["openid.ax.type." + attr] = ns;
+      return attr;
+    });
+    optional = optional.map(function (ns, i) {
+      var attr = attributeMapping[ns] || "opt" + i;
+      self.requestParams["openid.ax.type." + attr] = ns;
+      return attr;
+    });
+    if (required.length)
+      this.requestParams["openid.ax.required"] = required.join(",");
+    if (optional.length)
+      this.requestParams["openid.ax.if_available"] = optional.join(",");
   }
 }

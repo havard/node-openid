@@ -28,22 +28,30 @@ using OpenID for node.js for authentication:
 
     var openid = require('openid');
     var url = require('url');
+    var querystring = require('querystring');
     var server = require('http').createServer(
         function(req, res)
         {
-            var parsedUrl = url.parse(req.url, true);
+            var parsedUrl = url.parse(req.url);
             if(parsedUrl.pathname == '/verify')
             {
                 // Verify identity assertion
                 var result = openid.verifyAssertion(req); // or req.url
+                var attributes = [];
+                var sreg = new openid.SimpleRegistration(result);
+                for (var k in sreg)
+                  attributes.push(k + ": " + sreg[k]);
+                var ax = new openid.AttributeExchange(result);
+                for (var k in ax)
+                  attributes.push(k + ": " + ax[k]);
                 res.writeHead(200);
-                res.end(result.authenticated ? 'Success :)' : 'Failure :(');
+                res.end(result.authenticated ? 'Success :)\n' + attributes.join("\n") : 'Failure :(\n' + result.error);
             }
             else if(parsedUrl.pathname == '/authenticate')
             {
                 // Resolve identifier, associate, build authentication URL
                 openid.authenticate(
-                    parsedUrl.query.openid_identifier, // user supplied identifier
+                    querystring.parse(parsedUrl.query).openid_identifier, // user supplied identifier
                     'http://example.com/verify', // our callback URL
                     null, // realm (optional)
                     false, // attempt immediate authentication first?
@@ -51,7 +59,14 @@ using OpenID for node.js for authentication:
                     {
                         res.writeHead(302, { Location: authUrl });
                         res.end();
-                    });
+                    }, [new openid.UserInterface(), new openid.SimpleRegistration({
+                      "nickname" : true, "email" : true, "fullname" : true,
+                      "dob" : true, "gender" : true, "postcode" : true,
+                      "country" : true, "language" : true, "timezone" : true}),
+                      new openid.AttributeExchange({
+                      "http://axschema.org/contact/email": "required",
+                      "http://axschema.org/namePerson/friendly": "required",
+                      "http://axschema.org/namePerson": "required"})]);
             }
             else
             {

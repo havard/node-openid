@@ -36,12 +36,15 @@ var server = require('http').createServer(
         {
             // Verify identity assertion
             var result = openid.verifyAssertion(req); // or req.url
+            var attributes = [];
             var sreg = new openid.SimpleRegistration(result);
-            var sregformatted = [];
             for (var k in sreg)
-              sregformatted.push(k + ": " + sreg[k]);
+              attributes.push(k + ": " + sreg[k]);
+            var ax = new openid.AttributeExchange(result);
+            for (var k in ax)
+              attributes.push(k + ": " + ax[k]);
             res.writeHead(200);
-            res.end(result.authenticated ? 'Success :)\n' + sregformatted.join("\n") : 'Failure :(\n' + result.error);
+            res.end(result.authenticated ? 'Success :)\n' + attributes.join("\n") : 'Failure :(\n' + result.error);
         }
         else if(parsedUrl.pathname == '/authenticate')
         {
@@ -55,10 +58,14 @@ var server = require('http').createServer(
                 {
                     res.writeHead(302, { Location: authUrl });
                     res.end();
-                }, [new openid.SimpleRegistration({
+                }, [new openid.UserInterface(), new openid.SimpleRegistration({
                   "nickname" : true, "email" : true, "fullname" : true,
                   "dob" : true, "gender" : true, "postcode" : true,
-                  "country" : true, "language" : true, "timezone" : true})]);
+                  "country" : true, "language" : true, "timezone" : true}),
+                  new openid.AttributeExchange({
+                  "http://axschema.org/contact/email": "required",
+                  "http://axschema.org/namePerson/friendly": "required",
+                  "http://axschema.org/namePerson": "required"})]);
         }
         else
         {
