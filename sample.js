@@ -27,22 +27,27 @@ require.paths.unshift(__dirname);
 
 var openid = require('openid');
 var url = require('url');
+var querystring = require('querystring');
 var server = require('http').createServer(
     function(req, res)
     {
-        var parsedUrl = url.parse(req.url, true);
+        var parsedUrl = url.parse(req.url);
         if(parsedUrl.pathname == '/verify')
         {
             // Verify identity assertion
             var result = openid.verifyAssertion(req); // or req.url
+            var sreg = new openid.SimpleRegistration(result);
+            var sregformatted = [];
+            for (var k in sreg)
+              sregformatted.push(k + ": " + sreg[k]);
             res.writeHead(200);
-            res.end(result.authenticated ? 'Success :)' : 'Failure :(');
+            res.end(result.authenticated ? 'Success :)\n' + sregformatted.join("\n") : 'Failure :(\n' + result.error);
         }
         else if(parsedUrl.pathname == '/authenticate')
         {
             // Resolve identifier, associate, build authentication URL
             openid.authenticate(
-                parsedUrl.query.openid_identifier, // user supplied identifier
+                querystring.parse(parsedUrl.query).openid_identifier, // user supplied identifier
                 'http://example.com/verify', // our callback URL
                 null, // realm (optional)
                 false, // attempt immediate authentication first?
@@ -50,7 +55,10 @@ var server = require('http').createServer(
                 {
                     res.writeHead(302, { Location: authUrl });
                     res.end();
-                });
+                }, [new openid.SimpleRegistration({
+                  "nickname" : true, "email" : true, "fullname" : true,
+                  "dob" : true, "gender" : true, "postcode" : true,
+                  "country" : true, "language" : true, "timezone" : true})]);
         }
         else
         {

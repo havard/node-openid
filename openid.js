@@ -1,3 +1,5 @@
+/* -*- Mode: JS; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set sw=2 ts=2 et tw=80 : */
 /* OpenID for node.js
  *
  * http://ox.no/software/node-openid
@@ -30,7 +32,7 @@ var bigint = require('bigint'),
     convert = require('convert'),
     crypto = require('crypto'),
     http = require('http'),
-    querystring = require('querystring'),
+    querystring = require('querystring.js'),
     url = require('url'),
     xrds = require('xrds');
 
@@ -101,7 +103,7 @@ openid.removeAssociation = function(handle)
 
 function _buildUrl(theUrl, params)
 {
-  theUrl = url.parse(theUrl, true);
+  theUrl = url.parse(theUrl);
   if(params)
   {
     if(!theUrl.query)
@@ -110,6 +112,7 @@ function _buildUrl(theUrl, params)
     }
     else
     {
+      theUrl.query = querystring.parse(theUrl.query);
       for(var key in params)
       {
         if(params.hasOwnProperty(key))
@@ -126,7 +129,8 @@ function _buildUrl(theUrl, params)
 function _get(getUrl, params, callback, redirects)
 {
   redirects = redirects || 5;
-  getUrl = url.parse(_buildUrl(getUrl, params), true);
+  getUrl = url.parse(_buildUrl(getUrl, params));
+  getUrl.query = querystring.parse(getUrl.query);
 
   var path = getUrl.pathname;
 
@@ -175,7 +179,8 @@ function _get(getUrl, params, callback, redirects)
 function _post(getUrl, data, callback, redirects)
 {
   redirects = redirects || 5;
-  getUrl = url.parse(getUrl, true);
+  getUrl = url.parse(getUrl);
+  getUrl.query = querystring.parse(getUrl.query);
 
   var client = http.createClient(
     _isDef(getUrl.port) 
@@ -648,7 +653,7 @@ function _generateAssociationRequestParameters(version, algorithm)
   return params;
 }
 
-openid.authenticate = function(identifier, returnUrl, realm, immediate, callback)
+openid.authenticate = function(identifier, returnUrl, realm, immediate, callback, extensions)
 {
   openid.discover(identifier, function(providers, version)
   {
@@ -668,13 +673,13 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, callback
           return console.log(answer);
         }
         
-        _requestAuthentication(provider, answer.assoc_handle, returnUrl, realm, immediate, callback);
+        _requestAuthentication(provider, answer.assoc_handle, returnUrl, realm, immediate, callback, extensions || {});
       });
     }
   });
 }
 
-function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immediate, callback)
+function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immediate, callback, extensions)
 {
   var params = {
     'openid.mode' : immediate ? 'checkid_immediate' : 'checkid_setup'
@@ -683,6 +688,11 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
   if(provider.version.indexOf('2.0') !== -1)
   {
     params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
+  }
+
+  for(var i in extensions) {
+    for(var key in extensions[i].requestParams)
+      params[key] = extensions[i].requestParams[key];
   }
 
   // TODO: 1.1 compatibility
@@ -740,7 +750,8 @@ openid.verifyAssertion = function(requestOrUrl)
     assertionUrl = requestOrUrl.url;
   }
 
-  assertionUrl = url.parse(assertionUrl, true);
+  assertionUrl = url.parse(assertionUrl);
+  assertionUrl.query = querystring.parse(assertionUrl.query);
   var params = _fixParams(assertionUrl.query);
 
   var assertionError = _getAssertionError(params);
@@ -760,7 +771,8 @@ openid.verifyAssertion = function(requestOrUrl)
 
   // make sure to remove already used associations to prevent replay
   openid.removeAssociation(params['openid.assoc_handle']);
-  return { authenticated : true , identifier: params['openid.claimed_id'] };
+  return { authenticated : true , identifier: params['openid.claimed_id'],
+    params: params };
 }
 
 function _getAssertionError(params)
@@ -822,8 +834,6 @@ function _checkSignature(params)
 
 // Recursive parameter lookup for node v0.2.x 
 function _fixParams(params) {
-  if (!process.version.match(/^v0\.2\./))
-    return params;
   for (var key in params) {
     if (typeof(params[key]) == "object") {
       _fixParams(params[key]);
@@ -834,4 +844,36 @@ function _fixParams(params) {
     }
   }
   return params;
+}
+
+
+/* Simple Registration Extension: http://openid.net/specs/openid-simple-registration-extension-1_1-01.html */
+var sreg_keys = ["nickname", "email", "fullname", "dob", "gender", "postcode", "country", "language", "timezone"];
+openid.SimpleRegistration = function SimpleRegistration(options) {
+  if (options.params) { // parsing the successful result
+    for(var i in sreg_keys) {
+      var key = sreg_keys[i];
+      if (options.params["openid.sreg." + key])
+        this[key] = options.params["openid.sreg." + key];
+    }
+  } else { // constructing the params for the auth request
+    this.requestParams = {"openid.ns.sreg": "http://openid.net/extensions/sreg/1.1"};
+    if (options.policy_url)
+      this.requestParams["openid.sreg.policy_url"] = options.policy_url;
+    var required = [];
+    var optional = [];
+    for(var i in sreg_keys) {
+      var key = sreg_keys[i];
+      if (options[key]) {
+        if (options[key] == "required")
+          required.push(key);
+        else
+          optional.push(key);
+      }
+      if(required.length)
+        this.requestParams["openid.sreg.required"] = required.join(",");
+      if(optional.length)
+        this.requestParams["openid.sreg.optional"] = optional.join(",");
+    }
+  }
 }
