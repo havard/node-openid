@@ -32,7 +32,8 @@ var bigint = require('bigint'),
     convert = require('convert'),
     crypto = require('crypto'),
     http = require('http'),
-    querystring = require('querystring.js'),
+    https = require('https'),
+    querystring = require('querystring'),
     url = require('url'),
     xrds = require('xrds');
 
@@ -130,31 +131,19 @@ function _get(getUrl, params, callback, redirects)
 {
   redirects = redirects || 5;
   getUrl = url.parse(_buildUrl(getUrl, params));
-  getUrl.query = querystring.parse(getUrl.query);
 
-  var path = getUrl.pathname;
-
-  if(!path)
-  {
-    path = '/';
-  }
+  var path = getUrl.pathname || '/';
   if(getUrl.query)
   {
-    path += '?' + querystring.stringify(getUrl.query)
+    path += '?' + getUrl.query;
   }
-
-  var client = http.createClient(
-    _isDef(getUrl.port) 
-      ? getUrl.port 
-      : (getUrl.protocol == 'https:' 
-        ? 443 
-        : 80), 
-    getUrl.hostname,
-    getUrl.protocol == 'https:');
-
-  var req = client.request('GET', path, { 'Host': getUrl.hostname });
-  req.end();
-  req.on('response', function(res)
+  var options = {
+    host: getUrl.hostname,
+    port: _isDef(getUrl.port) ? getUrl.port :
+      (getUrl.protocol == 'https:' ? 443 : 80),
+    path: path
+  };
+  (getUrl.protocol == 'https:' ? https : http).get(options, function(res)
   {
     var data = '';
     res.on('data', function(chunk)
@@ -180,31 +169,24 @@ function _post(getUrl, data, callback, redirects)
 {
   redirects = redirects || 5;
   getUrl = url.parse(getUrl);
-  getUrl.query = querystring.parse(getUrl.query);
 
-  var client = http.createClient(
-    _isDef(getUrl.port) 
-      ? getUrl.port 
-      : (getUrl.protocol == 'https:' 
-        ? 443 
-        : 80), 
-    getUrl.hostname,
-    getUrl.protocol == 'https:');
-
-  var path = getUrl.pathname;
-  if(!path)
-  {
-    path = '/';
-  }
+  var path = getUrl.pathname || '/';
   if(getUrl.query)
   {
-    path += '?' + querystring.stringify(getUrl.query)
+    path += '?' + getUrl.query;
   }
+
   var encodedData = _encodePostData(data);
-  var req = client.request('POST', path, { 'Host' : getUrl.hostname, 'Content-Type':
-  'application/x-www-form-urlencoded', 'Content-Length': encodedData.length });
-  req.end(encodedData);
-  req.on('response', function(res)
+  var options = {
+    host: getUrl.hostname,
+    port: _isDef(getUrl.port) ? getUrl.port :
+      (getUrl.protocol == 'https:' ? 443 : 80),
+    path: path,
+    headers: {'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': encodedData.length},
+    method: 'POST'
+  };
+  (getUrl.protocol == 'https:' ? https : http).request(options, function(res)
   {
     var data = '';
     res.on('data', function(chunk)
@@ -223,7 +205,7 @@ function _post(getUrl, data, callback, redirects)
         callback(data, res.headers, res.statusCode);
       }
     });
-  });
+  }).end(encodedData);
 }
 
 function _encodePostData(data)
