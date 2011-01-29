@@ -162,6 +162,8 @@ function _get(getUrl, params, callback, redirects)
         callback(data, res.headers, res.statusCode);
       }
     });
+  }).on("error", function () {
+    callback();
   });
 }
 
@@ -205,6 +207,8 @@ function _post(getUrl, data, callback, redirects)
         callback(data, res.headers, res.statusCode);
       }
     });
+  }).on("error", function () {
+    callback();
   }).end(encodedData);
 }
 
