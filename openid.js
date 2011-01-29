@@ -237,6 +237,8 @@ function _decodePostData(data)
 function _normalizeIdentifier(identifier)
 {
   identifier = identifier.replace(/^\s+|\s+$/g, '');
+  if(!identifier)
+    return null;
   if(identifier.indexOf('xri://') === 0)
   {
     identifier = identifier.substring(6);
@@ -456,6 +458,10 @@ function _resolveHtml(identifier, callback, hops, data)
 openid.discover = function(identifier, callback)
 {
   identifier = _normalizeIdentifier(identifier);
+  if(!identifier) {
+    callback(null);
+    return;
+  }
   if(identifier.indexOf('http') !== 0)
   {
     // XRDS

@@ -38,6 +38,16 @@ exports.testResolveFailed = function(test)
     });
 }
 
+exports.testEmptyUrl = function(test)
+{
+  openid.discover('',
+    function(data)
+    {
+      assert.equal(null, data);
+      test.done();
+    });
+}
+
 exports.testResolveRyanXri = function(test)
 {
   openid.discover('=ryan',
