@@ -641,7 +641,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, callback
   {
     if(!providers || providers.length == 0)
     {
-      throw new Error("No provider discovered for identity");
+      callback(null, "No provider discovered for identity");
     }
 
     for(var p in providers)
@@ -651,8 +651,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, callback
       {
         if(!answer || answer.error)
         {
-          // TODO: Do dumb/stateless mode
-          return console.log(answer);
+          callback(null, answer.error);
         }
         
         _requestAuthentication(provider, answer.assoc_handle, returnUrl, realm, immediate, callback, extensions || {});

@@ -54,8 +54,14 @@ var server = require('http').createServer(
                 'http://example.com/verify', // our callback URL
                 null, // realm (optional)
                 false, // attempt immediate authentication first?
-                function(authUrl)
+                function(authUrl, error)
                 {
+                    if (error)
+                    {
+                        res.writeHead(200);
+                        res.end(error);
+                        return;
+                    }
                     res.writeHead(302, { Location: authUrl });
                     res.end();
                 }, [new openid.UserInterface(), new openid.SimpleRegistration({

@@ -27,6 +27,17 @@ require.paths.unshift(__dirname + '/../');
 var assert = require('assert');
 var openid = require('openid');
 
+exports.testResolveFailed = function(test)
+{
+  openid.authenticate('example.com', 'http://example.com/verify', null, false,
+    function(data, error)
+    {
+      assert.equal(null, data);
+      assert.ok(error);
+      test.done();
+    });
+}
+
 exports.testResolveRyanXri = function(test)
 {
   openid.discover('=ryan',
