@@ -661,6 +661,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, callback
       {
         if(!answer || answer.error)
         {
+          // TODO: Do dumb/stateless mode
           callback(null, answer.error);
         }
         
