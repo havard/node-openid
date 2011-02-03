@@ -36,12 +36,6 @@ var bigint = require('bigint'),
     url = require('url'),
     xrds = require('xrds');
 
-try {
-  var https = require('https');
-} catch (e) {
-  var https = null;
-}
-
 var _associations = {};
 
 var openid = exports;
