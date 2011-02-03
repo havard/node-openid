@@ -379,7 +379,7 @@ function _matchLinkTag(html, rel)
   return href[1];
 }
 
-_parseHtml = function(htmlUrl, html, callback, hops)
+function _parseHtml (htmlUrl, html, callback, hops)
 {
   var metaUrl = _matchMetaTag(html);
   if(metaUrl != null)
