@@ -30,10 +30,9 @@ var openid = require('openid');
 exports.testResolveFailed = function(test)
 {
   openid.authenticate('example.com', 'http://example.com/verify', null, false,
-    function(data, error)
+    function(err, data)
     {
-      assert.equal(null, data);
-      assert.ok(error);
+      assert.ok(err);
       test.done();
     });
 }
@@ -41,7 +40,7 @@ exports.testResolveFailed = function(test)
 exports.testEmptyUrl = function(test)
 {
   openid.discover('',
-    function(data)
+    function(err, data)
     {
       assert.equal(null, data);
       test.done();
@@ -51,7 +50,7 @@ exports.testEmptyUrl = function(test)
 exports.testResolveRyanXri = function(test)
 {
   openid.discover('=ryan',
-    function(data)
+    function(err, data)
     {
       assert.equal(2, data.length);
       test.done();
@@ -61,7 +60,7 @@ exports.testResolveRyanXri = function(test)
 exports.testResolveRedirect = function(test)
 {
   openid.discover('http://www.myopenid.com/xrds?username=swatinem.myopenid.com',
-    function(data)
+    function(err, data)
     {
       assert.equal(3, data.length);
       test.done();
@@ -71,7 +70,7 @@ exports.testResolveRedirect = function(test)
 exports.testResolveGoogle = function(test)
 {
   openid.discover('http://www.google.com/accounts/o8/id',
-    function(data)
+    function(err, data)
     {
       assert.equal(1, data.length);
       test.done();
@@ -81,7 +80,7 @@ exports.testResolveGoogle = function(test)
 exports.testResolveLiveJournalUser = function(test)
 {
   openid.discover('http://omnifarious.livejournal.com/',
-    function(data)
+    function(err, data)
     {
       assert.equal(1, data.length);
       test.done();
@@ -91,7 +90,7 @@ exports.testResolveLiveJournalUser = function(test)
 exports.testResolveOpenID11 = function(test)
 {
   openid.discover('http://www.michaelwales.com/',
-    function(data)
+    function(err, data)
     {
       assert.equal(1, data.length);
       test.done();
@@ -101,10 +100,10 @@ exports.testResolveOpenID11 = function(test)
 function associateTest(url, test)
 {
   openid.discover(url,
-    function(providers)
+    function(err, providers)
     {
       var provider = providers[0];
-      openid.associate(provider, function(data)
+      openid.associate(provider, function(err, data)
       {
         assert.ok(data.expires_in);
         test.done();
@@ -131,7 +130,7 @@ exports.testAssociateWithOpenID11 = function(test)
 exports.testImmediateAuthenticationWithGoogle = function(test)
 {
   openid.authenticate('http://www.google.com/accounts/o8/id', 
-  'http://licensing.ox.no:8080/verify', null, true, function(url)
+  'http://licensing.ox.no:8080/verify', null, true, function(err, url)
   {
     assert.ok(url.indexOf('checkid_immediate') !== -1);
     test.done();
@@ -141,7 +140,7 @@ exports.testImmediateAuthenticationWithGoogle = function(test)
 exports.testSetupAuthenticationWithGoogle = function(test)
 {
   openid.authenticate('http://www.google.com/accounts/o8/id', 
-  'http://licensing.ox.no:8080/verify', null, false, function(url)
+  'http://licensing.ox.no:8080/verify', null, false, function(err, url)
   {
     assert.ok(url.indexOf('checkid_setup') !== -1);
     test.done();

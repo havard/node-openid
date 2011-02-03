@@ -32,10 +32,15 @@ var bigint = require('bigint'),
     convert = require('convert'),
     crypto = require('crypto'),
     http = require('http'),
-    https = require('https'),
     querystring = require('querystring'),
     url = require('url'),
     xrds = require('xrds');
+
+try {
+  var https = require('https');
+} catch (e) {
+  var https = null;
+}
 
 var _associations = {};
 
@@ -172,7 +177,9 @@ function _post(getUrl, data, callback, redirects)
   redirects = redirects || 5;
   getUrl = url.parse(getUrl);
 
-  var path = getUrl.pathname || '/';
+  var path = getUrl.pathname || '/'
+    , error = false;
+
   if(getUrl.query)
   {
     path += '?' + getUrl.query;
@@ -188,6 +195,10 @@ function _post(getUrl, data, callback, redirects)
       'Content-Length': encodedData.length},
     method: 'POST'
   };
+
+  if (getUrl.protocol == 'https' && !https)
+    return callback(new OpenIdError('HTTPS not supported. Upgrade to Node 0.3'));
+
   (getUrl.protocol == 'https:' ? https : http).request(options, function(res)
   {
     var data = '';
@@ -204,11 +215,15 @@ function _post(getUrl, data, callback, redirects)
       }
       else
       {
-        callback(data, res.headers, res.statusCode);
+        callback(null, data, res.headers, res.statusCode);
       }
     });
   }).on("error", function () {
-    callback();
+    // prevent firing callback twice
+    if (!error) {
+      callback(new OpenIdError('Error accessing' + url));
+      error = true;
+    }
   }).end(encodedData);
 }
 
@@ -398,15 +413,17 @@ function _resolveXri(xriUrl, callback, hops)
     var xrdsLocation = headers['x-xrds-location'];
     if(_isDef(xrdsLocation))
     {
-      _get(xrdsLocation, null, function(data, headers, statusCode)
+      _get(xrdsLocation, null, function(err, data, headers, statusCode)
       {
+        if (err) return callback(err);
+
         if(statusCode != 200 || data == null)
         {
           callback(null);
         }
         else
         {
-          callback(_parseXrds(xrdsLocation, data));
+          callback(null, _parseXrds(xrdsLocation, data));
         }
       });
     }
@@ -417,7 +434,7 @@ function _resolveXri(xriUrl, callback, hops)
       // changes, so text/xml is encountered
       if(contentType.indexOf('application/xrds+xml') === 0 || contentType.indexOf('text/xml') === 0)
       {
-        return callback(_parseXrds(xriUrl, data));
+        return callback(null, _parseXrds(xriUrl, data));
       }
       else
       {
@@ -474,19 +491,21 @@ openid.discover = function(identifier, callback)
 
   // Try XRDS/Yadis discovery
 
-  _resolveXri(identifier, function(data)
+  _resolveXri(identifier, function(err, data)
   {
+    if (err) return callback(err);
+
     if(data == null)
     {
       // Fallback to HTML discovery
       _resolveHtml(identifier, function(data)
       {
-        callback(data);
+        callback(null, data);
       });
     }
     else
     {
-      callback(data);
+      callback(null, data);
     }
   });
 }
@@ -533,15 +552,13 @@ openid.associate = function(provider, callback, algorithm)
     params['openid.dh_consumer_public'] = dh.j;
   }
 
-  _post(provider.endpoint, params, function(data, headers, statusCode)
+  _post(provider.endpoint, params, function(err, data, headers, statusCode)
   {
+    if (err) return callback(err);
+
     if(statusCode != 200 || data == null)
     {
-      return callback({ 
-        error: 'HTTP request failed', 
-        error_code: ''  + statusCode, 
-        ns: 'http://specs.openid.net/auth/2.0' 
-      });
+      return callback(new OpenIdError('HTTP request failed (' + statusCode + ')'));
     }
 
     data = _decodePostData(data);
@@ -566,7 +583,7 @@ openid.associate = function(provider, callback, algorithm)
       }
       else
       {
-        callback(data);
+        callback(null, data);
       }
     }
     else
@@ -594,7 +611,7 @@ openid.associate = function(provider, callback, algorithm)
       openid.saveAssociation(hashAlgorithm,
         data.assoc_handle, secret, data.expires_in * 1);
 
-      callback(data);
+      callback(null, data);
     }
   });
 }
@@ -731,7 +748,7 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
     throw new Error("No return URL or realm specified");
   }
 
-  callback(_buildUrl(provider.endpoint, params));
+  callback(null, _buildUrl(provider.endpoint, params));
 }
 
 openid.verifyAssertion = function(requestOrUrl)
@@ -947,3 +964,10 @@ openid.AttributeExchange = function AttributeExchange(options) {
       this.requestParams["openid.ax.if_available"] = optional.join(",");
   }
 }
+
+openid.OpenIdError = function OpenIdError = function (msg, code) {
+  Error.call(this, msg);
+  Error.captureStackTrace(this, arguments.callee);
+  this.name = 'OpenIdError';
+  this.code = code;
+};
