@@ -83,6 +83,18 @@ function _xor(a, b)
   return r;
 }
 
+function OpenIdError (msg, code) {
+  Error.call(this, msg);
+  Error.captureStackTrace(this, arguments.callee);
+  this.message = msg;
+  this.name = 'OpenIdError';
+  this.code = code;
+};
+
+OpenIdError.prototype.__proto__ = Error.prototype;
+
+openid.OpenIdError = OpenIdError;
+
 openid.saveAssociation = function(type, handle, secret, expiry_time)
 {
   setTimeout(function() {
@@ -135,20 +147,32 @@ function _buildUrl(theUrl, params)
 function _get(getUrl, params, callback, redirects)
 {
   redirects = redirects || 5;
-  getUrl = url.parse(_buildUrl(getUrl, params));
+  getUrl = url.parse(_buildUrl(getUrl, params), true);
 
-  var path = getUrl.pathname || '/';
+  var path = getUrl.pathname,
+      error = false;
+
+  if(!path)
+  {
+    path = '/';
+  }
   if(getUrl.query)
   {
-    path += '?' + getUrl.query;
+    path += '?' + querystring.stringify(getUrl.query)
   }
-  var options = {
-    host: getUrl.hostname,
-    port: _isDef(getUrl.port) ? getUrl.port :
-      (getUrl.protocol == 'https:' ? 443 : 80),
-    path: path
-  };
-  (getUrl.protocol == 'https:' ? https : http).get(options, function(res)
+
+  var client = http.createClient(
+    _isDef(getUrl.port) 
+      ? getUrl.port 
+      : (getUrl.protocol == 'https:' 
+        ? 443 
+        : 80), 
+    getUrl.hostname,
+    getUrl.protocol == 'https:');
+
+  var req = client.request('GET', path, { 'Host': getUrl.hostname });
+  req.end();
+  req.on('response', function(res)
   {
     var data = '';
     res.on('data', function(chunk)
@@ -164,42 +188,49 @@ function _get(getUrl, params, callback, redirects)
       }
       else
       {
-        callback(data, res.headers, res.statusCode);
+        callback(null, data, res.headers, res.statusCode);
       }
     });
-  }).on("error", function () {
-    callback();
+
+    res.on('error', function () {
+      if (!error) {
+        error = true;
+        callback(new OpenIdError('HTTP GET error'));
+      }
+    });
   });
 }
 
 function _post(getUrl, data, callback, redirects)
 {
   redirects = redirects || 5;
-  getUrl = url.parse(getUrl);
+  getUrl = url.parse(getUrl, true);
 
-  var path = getUrl.pathname || '/'
-    , error = false;
+  var client = http.createClient(
+    _isDef(getUrl.port) 
+      ? getUrl.port 
+      : (getUrl.protocol == 'https:' 
+        ? 443 
+        : 80), 
+    getUrl.hostname,
+    getUrl.protocol == 'https:');
 
+  var error = false;
+  var path = getUrl.pathname;
+
+  if(!path)
+  {
+    path = '/';
+  }
   if(getUrl.query)
   {
-    path += '?' + getUrl.query;
+    path += '?' + querystring.stringify(getUrl.query)
   }
-
   var encodedData = _encodePostData(data);
-  var options = {
-    host: getUrl.hostname,
-    port: _isDef(getUrl.port) ? getUrl.port :
-      (getUrl.protocol == 'https:' ? 443 : 80),
-    path: path,
-    headers: {'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': encodedData.length},
-    method: 'POST'
-  };
-
-  if (getUrl.protocol == 'https' && !https)
-    return callback(new OpenIdError('HTTPS not supported. Upgrade to Node 0.3'));
-
-  (getUrl.protocol == 'https:' ? https : http).request(options, function(res)
+  var req = client.request('POST', path, { 'Host' : getUrl.hostname, 'Content-Type':
+  'application/x-www-form-urlencoded', 'Content-Length': encodedData.length });
+  req.end(encodedData);
+  req.on('response', function(res)
   {
     var data = '';
     res.on('data', function(chunk)
@@ -218,13 +249,14 @@ function _post(getUrl, data, callback, redirects)
         callback(null, data, res.headers, res.statusCode);
       }
     });
-  }).on("error", function () {
-    // prevent firing callback twice
-    if (!error) {
-      callback(new OpenIdError('Error accessing' + url));
-      error = true;
-    }
-  }).end(encodedData);
+
+    res.on('error', function () {
+      if (!error){
+        error = true;
+        callback(new OpenIdError('HTTP POST error'));
+      }
+    });
+  });
 }
 
 function _encodePostData(data)
@@ -372,7 +404,7 @@ _parseHtml = function(htmlUrl, html, callback, hops)
     else
     {
       var localId = _matchLinkTag(html, 'openid.delegate');
-      callback([{ 
+      callback(null, [{ 
         version: 'http://openid.net/signon/1.1',
         endpoint: provider, 
         claimedIdentifier: htmlUrl,
@@ -383,7 +415,7 @@ _parseHtml = function(htmlUrl, html, callback, hops)
   else
   {
     var localId = _matchLinkTag(html, 'openid2.local_id');
-    callback([{ 
+    callback(null, [{ 
       version: 'http://specs.openid.net/auth/2.0/signon', 
       endpoint: provider, 
       claimedIdentifier: htmlUrl,
@@ -403,8 +435,10 @@ function _resolveXri(xriUrl, callback, hops)
     return callback(null);
   }
 
-  _get(xriUrl, null, function(data, headers, statusCode)
+  _get(xriUrl, null, function(err, data, headers, statusCode)
   {
+    if (err) return callback(err);
+
     if(statusCode != 200)
     {
       return callback(null);
@@ -457,8 +491,10 @@ function _resolveHtml(identifier, callback, hops, data)
 
   if(data == null)
   {
-    _get(identifier, null, function(data, headers, statusCode)
+    _get(identifier, null, function(err, data, headers, statusCode)
     {
+      if (err) return callback(err);
+
       if(statusCode != 200 || data == null)
       {
         callback(null);
@@ -498,7 +534,7 @@ openid.discover = function(identifier, callback)
     if(data == null)
     {
       // Fallback to HTML discovery
-      _resolveHtml(identifier, function(data)
+      _resolveHtml(identifier, function(err, data)
       {
         callback(null, data);
       });
@@ -588,24 +624,28 @@ openid.associate = function(provider, callback, algorithm)
     }
     else
     {
-      var secret = null;
+      try {
+        var secret = null;
 
-      var hashAlgorithm = algorithm.indexOf('256') !== -1 ? 'sha256' : 'sha1';
+        var hashAlgorithm = algorithm.indexOf('256') !== -1 ? 'sha256' : 'sha1';
 
-      if(algorithm.indexOf('no-encryption') !== -1)
-      {
-        secret = data.mac_key;
-      }
-      else
-      {
-        var serverPublic = _fromBase64(data.dh_server_public);
-        var sharedSecret = convert.btwoc(convert.chars_from_hex(
-          serverPublic.modPow(_fromBase64(dh.a), _fromBase64(dh.p)).toString(16)));
-        var hash = crypto.createHash(hashAlgorithm);
-        hash.update(sharedSecret);
-        sharedSecret = hash.digest();
-        var encMacKey = convert.base64.decode(data.enc_mac_key);
-        secret = convert.base64.encode(_xor(encMacKey, sharedSecret));
+        if(algorithm.indexOf('no-encryption') !== -1)
+        {
+          secret = data.mac_key;
+        }
+        else
+        {
+          var serverPublic = _fromBase64(data.dh_server_public);
+          var sharedSecret = convert.btwoc(convert.chars_from_hex(
+            serverPublic.modPow(_fromBase64(dh.a), _fromBase64(dh.p)).toString(16)));
+          var hash = crypto.createHash(hashAlgorithm);
+          hash.update(sharedSecret);
+          sharedSecret = hash.digest();
+          var encMacKey = convert.base64.decode(data.enc_mac_key);
+          secret = convert.base64.encode(_xor(encMacKey, sharedSecret));
+        }
+      } catch (e) {
+        return callback(e);
       }
 
       openid.saveAssociation(hashAlgorithm,
@@ -664,23 +704,20 @@ function _generateAssociationRequestParameters(version, algorithm)
 
 openid.authenticate = function(identifier, returnUrl, realm, immediate, callback, extensions)
 {
-  openid.discover(identifier, function(providers, version)
+  openid.discover(identifier, function(err, providers, version)
   {
     if(!providers || providers.length == 0)
     {
-      callback(null, "No provider discovered for identity");
+      callback(new OpenIdError("No provider discovered for identity"));
     }
 
     for(var p in providers)
     {
       var provider = providers[p];
-      openid.associate(provider, function(answer)
+      openid.associate(provider, function(err, answer)
       {
-        if(!answer || answer.error)
-        {
-          // TODO: Do dumb/stateless mode
-          callback(null, answer.error);
-        }
+        if (err) return callback(err);
+        if (!answer) return callback(new OpenIdError('No answer'));
         
         _requestAuthentication(provider, answer.assoc_handle, returnUrl, realm, immediate, callback, extensions || {});
       });
@@ -745,7 +782,7 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
   }
   else if(!returnUrl)
   {
-    throw new Error("No return URL or realm specified");
+    return callback(new Error("No return URL or realm specified"));
   }
 
   callback(null, _buildUrl(provider.endpoint, params));
@@ -965,9 +1002,3 @@ openid.AttributeExchange = function AttributeExchange(options) {
   }
 }
 
-openid.OpenIdError = function OpenIdError = function (msg, code) {
-  Error.call(this, msg);
-  Error.captureStackTrace(this, arguments.callee);
-  this.name = 'OpenIdError';
-  this.code = code;
-};
