@@ -340,19 +340,17 @@ function _matchLinkTag(html, rel)
 
 _parseHtml = function(htmlUrl, html, callback, hops)
 {
-  var metaUrl = _matchMetaTag(html);
-  if(metaUrl != null)
-  {
-    return _resolveXri(metaUrl, callback, hops + 1);
-  }
-
   var provider = _matchLinkTag(html, 'openid2.provider');
   if(provider == null)
   {
     provider = _matchLinkTag(html, 'openid.server');
     if(provider == null)
     {
-      callback(null);
+      var metaUrl = _matchMetaTag(html);
+      if(metaUrl != null)
+      {
+        return _resolveXri(metaUrl, callback, hops + 1);
+      }
     }
     else
     {
@@ -368,8 +366,9 @@ _parseHtml = function(htmlUrl, html, callback, hops)
   else
   {
     var localId = _matchLinkTag(html, 'openid2.local_id');
-    callback([{ 
-      version: 'http://specs.openid.net/auth/2.0/signon', 
+    callback([{
+      // 'http://specs.openid.net/auth/2.0/signon'
+      version: 'http://specs.openid.net/auth/2.0',
       endpoint: provider, 
       claimedIdentifier: htmlUrl,
       localIdentifier : localId 
