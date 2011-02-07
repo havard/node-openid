@@ -351,6 +351,7 @@ function _parseHtml (htmlUrl, html, callback, hops)
       {
         return _resolveXri(metaUrl, callback, hops + 1);
       }
+      callback(null);
     }
     else
     {
