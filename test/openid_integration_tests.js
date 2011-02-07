@@ -48,6 +48,19 @@ exports.testEmptyUrl = function(test)
     });
 }
 
+// NOTE: this test depends on checking delegation first before trying the xrds-location
+exports.testResolveDelegate = function(test)
+{
+  openid.discover('http://swatinem.de',
+    function(data)
+    {
+      assert.equal('http://www.myopenid.com/server', data[0].endpoint);
+      assert.equal('http://swatinem.de', data[0].claimedIdentifier);
+      assert.equal('http://swatinem.myopenid.com/', data[0].localIdentifier);
+      test.done();
+    });
+}
+
 exports.testResolveRyanXri = function(test)
 {
   openid.discover('=ryan',
