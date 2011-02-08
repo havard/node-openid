@@ -53,22 +53,13 @@ openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions)
 
 openid.RelyingParty.prototype.authenticate = function(identifier, immediate, callback)
 { 
-  var rp = this;
   openid.authenticate(identifier, this.returnUrl, this.realm, 
-      immediate, this.stateless, function(url, provider)
-      {
-        rp.provider = provider;
-        callback(url);
-      }, this.extensions);
+      immediate, this.stateless, callback, this.extensions);
 }
 
 openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
 {
-  if(!this.provider)
-  {
-    return callback({ authenticated: false, error: 'No provider' });
-  }
-  openid.verifyAssertion(requestOrUrl, callback, this.provider);
+  openid.verifyAssertion(requestOrUrl, callback, this.stateeless);
 }
 
 function _isDef(e)
@@ -720,9 +711,12 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
     params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
   }
 
-  for(var i in extensions) {
+  for(var i in extensions) 
+  {
     for(var key in extensions[i].requestParams)
+    {
       params[key] = extensions[i].requestParams[key];
+    }
   }
 
   // TODO: 1.1 compatibility
@@ -765,10 +759,10 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
     throw new Error("No return URL or realm specified");
   }
 
-  callback(_buildUrl(provider.endpoint, params), provider);
+  callback(_buildUrl(provider.endpoint, params));
 }
 
-openid.verifyAssertion = function(requestOrUrl, callback, provider)
+openid.verifyAssertion = function(requestOrUrl, callback, stateless)
 {
   var assertionUrl = requestOrUrl;
   if(typeof(requestOrUrl) !== typeof(''))
@@ -789,7 +783,7 @@ openid.verifyAssertion = function(requestOrUrl, callback, provider)
     callback({ authenticated: false, error: 'Association handle has been invalidated' });
   }
 
-  _checkSignature(params, callback, provider);
+  _checkSignature(params, callback, stateless);
 }
 
 function _getAssertionError(params)
@@ -815,7 +809,7 @@ function _checkValidHandle(params)
   return !_isDef(params['openid.invalidate_handle']);
 }
 
-function _checkSignature(params, callback, provider)
+function _checkSignature(params, callback, stateless)
 {
   if(!_isDef(params['openid.signed']) ||
     !_isDef(params['openid.sig']))
@@ -823,13 +817,13 @@ function _checkSignature(params, callback, provider)
     return callback({ authenticated: false, error: 'No signature in response' });
   }
 
-  if(_isDef(params['openid.assoc_handle']))
+  if(stateless)
   {
     _checkSignatureUsingAssociation(params, callback);
   }
   else
   {
-    _checkSignatureUsingProvider(params, callback, provider);
+    _checkSignatureUsingProvider(params, callback);
   }
 }
 
@@ -861,7 +855,7 @@ function _checkSignatureUsingAssociation(params, callback)
   callback({ authenticated: ourSignature == params['openid.sig']});
 }
 
-function _checkSignatureUsingProvider(params, callback, provider)
+function _checkSignatureUsingProvider(params, callback)
 {
   var requestParams = 
   {
@@ -875,7 +869,7 @@ function _checkSignatureUsingProvider(params, callback, provider)
     }
   }
 
-  _post(provider.endpoint, requestParams, function(data, headers, statusCode)
+  _post(params['openid.op_endpoint'], requestParams, function(data, headers, statusCode)
   {
     if(statusCode != 200 || data == null)
     {
