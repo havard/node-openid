@@ -748,8 +748,7 @@ openid.verifyAssertion = function(requestOrUrl, callback, provider)
   }
 
   assertionUrl = url.parse(assertionUrl);
-  assertionUrl.query = querystring.parse(assertionUrl.query);
-  var params = _fixParams(assertionUrl.query);
+  var params = querystring.parse(assertionUrl.query);
 
   var assertionError = _getAssertionError(params);
   if(assertionError)
@@ -859,20 +858,6 @@ function _checkSignatureUsingProvider(params, callback, provider)
       callback({ authenticated: data['is_valid']});
     }
   });
-}
-
-// Recursive parameter lookup for node v0.2.x 
-function _fixParams(params) {
-  for (var key in params) {
-    if (typeof(params[key]) == "object") {
-      _fixParams(params[key]);
-      for (var childkey in params[key]) {
-        params[key + "." + childkey] = params[key][childkey];
-      }
-      delete params[key];
-    }
-  }
-  return params;
 }
 
 /* ----- Extensions ----- */
