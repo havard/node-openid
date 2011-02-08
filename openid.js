@@ -646,33 +646,41 @@ function _generateAssociationRequestParameters(version, algorithm)
   return params;
 }
 
-openid.authenticate = function(identifier, returnUrl, realm, immediate, callback, extensions)
+openid.authenticate = function(identifier, returnUrl, realm, immediate, stateless, callback, extensions)
 {
   openid.discover(identifier, function(providers, version)
   {
     if(!providers || providers.length == 0)
     {
-      callback(null, "No provider discovered for identity");
+      callback(null, null);
     }
 
     for(var p in providers)
     {
       var provider = providers[p];
-      openid.associate(provider, function(answer)
+      
+      if(stateless)
       {
-        if(!answer || answer.error)
-        {
-          // TODO: Do dumb/stateless mode
-          callback(null, answer.error);
-        }
+        _requestAuthentication(provider, null, returnUrl, realm, immediate, extensions || {}, callback);
         
-        _requestAuthentication(provider, answer.assoc_handle, returnUrl, realm, immediate, callback, extensions || {});
-      });
+      }
+      else
+      {
+        openid.associate(provider, function(answer)
+        {
+          if(!answer || answer.error)
+          {
+            _requestAuthentication(provider, null, returnUrl, realm, immediate, extensions || {}, callback);
+          }
+          
+          _requestAuthentication(provider, answer.assoc_handle, returnUrl, realm, immediate, extensions || {}, callback);
+        });
+      }
     }
   });
 }
 
-function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immediate, callback, extensions)
+function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immediate, extensions, callback)
 {
   var params = {
     'openid.mode' : immediate ? 'checkid_immediate' : 'checkid_setup'
@@ -711,10 +719,6 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
   {
     params['openid.assoc_handle'] = assoc_handle;
   }
-  else
-  {
-    // TODO: This is stateless mode
-  }
 
   if(returnUrl)
   {
@@ -732,10 +736,10 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
     throw new Error("No return URL or realm specified");
   }
 
-  callback(_buildUrl(provider.endpoint, params));
+  callback(_buildUrl(provider.endpoint, params), provider);
 }
 
-openid.verifyAssertion = function(requestOrUrl)
+openid.verifyAssertion = function(requestOrUrl, callback, provider)
 {
   var assertionUrl = requestOrUrl;
   if(typeof(requestOrUrl) !== typeof(''))
@@ -750,22 +754,14 @@ openid.verifyAssertion = function(requestOrUrl)
   var assertionError = _getAssertionError(params);
   if(assertionError)
   {
-    return { authenticated: false, error: assertionError };
+    callback({ authenticated: false, error: assertionError });
   }
   if(!_checkValidHandle(params))
   {
-    return { authenticated: false, error: 'Association handle has been invalidated' };
+    callback({ authenticated: false, error: 'Association handle has been invalidated' });
   }
 
-  if(!_checkSignature(params))
-  {
-    return { authenticated: false, error: 'Provider signature is invalid or expired' };
-  }
-
-  // make sure to remove already used associations to prevent replay
-  openid.removeAssociation(params['openid.assoc_handle']);
-  return { authenticated : true , identifier: params['openid.claimed_id'],
-    params: params };
+  _checkSignature(params, callback, provider);
 }
 
 function _getAssertionError(params)
@@ -791,18 +787,30 @@ function _checkValidHandle(params)
   return !_isDef(params['openid.invalidate_handle']);
 }
 
-function _checkSignature(params)
+function _checkSignature(params, callback, provider)
 {
   if(!_isDef(params['openid.signed']) ||
     !_isDef(params['openid.sig']))
   {
-    return false;
+    return callback({ authenticated: false, error: 'No signature in response' });
   }
 
+  if(_isDef(params['openid.assoc_handle']))
+  {
+    _checkSignatureUsingAssociation(params, callback);
+  }
+  else
+  {
+    _checkSignatureUsingProvider(params, callback, provider);
+  }
+}
+
+function _checkSignatureUsingAssociation(params, callback)
+{
   var association = openid.loadAssociation(params['openid.assoc_handle']);
   if(!association)
   {
-    return false;
+    return callback({ authenticated: false, error: 'Invalid association handle'});
   }
 
   var message = '';
@@ -813,7 +821,7 @@ function _checkSignature(params)
     var value = params['openid.' + param];
     if(!_isDef(value))
     {
-      return false;
+      return callback({ authenticated: false, error: 'At least one parameter referred in signature is not present in response'});
     }
     message += param + ':' + value + '\n';
   }
@@ -822,7 +830,35 @@ function _checkSignature(params)
   hmac.update(message);
   var ourSignature = hmac.digest('base64');
 
-  return ourSignature == params['openid.sig'];
+  callback({ authenticated: ourSignature == params['openid.sig']});
+}
+
+function _checkSignatureUsingProvider(params, callback, provider)
+{
+  var requestParams = 
+  {
+    'openid.mode' : 'check_authentication'
+  };
+  for(var key in params)
+  {
+    if(params.hasOwnProperty(key) && key != 'openid.mode')
+    {
+      requestParams[key] = params[key];
+    }
+  }
+
+  _post(provider.endpoint, requestParams, function(data, headers, statusCode)
+  {
+    if(statusCode != 200 || data == null)
+    {
+      callback({ authenticated: false, error: 'Invalid assertion check from provider'});
+    }
+    else
+    {
+      data = _decodePostData(data);
+      callback({ authenticated: data['is_valid']});
+    }
+  });
 }
 
 // Recursive parameter lookup for node v0.2.x 
