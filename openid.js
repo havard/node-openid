@@ -42,6 +42,35 @@ var _associations = {};
 
 var openid = exports;
 
+openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions)
+{
+  this.returnUrl = returnUrl;
+  this.realm = realm || null;
+  this.stateless = stateless;
+  this.strict = strict;
+  this.extensions = extensions;
+}
+
+openid.RelyingParty.prototype.authenticate = function(identifier, immediate, callback)
+{ 
+  var rp = this;
+  openid.authenticate(identifier, this.returnUrl, this.realm, 
+      immediate, this.stateless, function(url, provider)
+      {
+        rp.provider = provider;
+        callback(url);
+      }, this.extensions);
+}
+
+openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
+{
+  if(!this.provider)
+  {
+    return callback({ authenticated: false, error: 'No provider' });
+  }
+  openid.verifyAssertion(requestOrUrl, callback, this.provider);
+}
+
 function _isDef(e)
 {
   var undefined;
