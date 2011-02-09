@@ -54,7 +54,7 @@ openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions)
 openid.RelyingParty.prototype.authenticate = function(identifier, immediate, callback)
 { 
   openid.authenticate(identifier, this.returnUrl, this.realm, 
-      immediate, this.stateless, callback, this.extensions);
+      immediate, this.stateless, callback, this.extensions, this.strict);
 }
 
 openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
@@ -537,7 +537,7 @@ function _generateDiffieHellmanParameters(algorithm)
     j: _toBase64(j) };
 }
 
-openid.associate = function(provider, callback, algorithm)
+openid.associate = function(provider, callback, strict, algorithm)
 {
   var params = _generateAssociationRequestParameters(provider.version, algorithm);
   if(!_isDef(algorithm))
@@ -569,21 +569,31 @@ openid.associate = function(provider, callback, algorithm)
 
     if(data.error_code == 'unsupported-type' || !_isDef(data.ns))
     {
-      // TODO: Should assert secure channel before
-      // allowing unencrypted association?
-      // Alternatively, one can drop association and
-      // use dumb mode (verify), which is secure
-      if(algorithm == 'DH-SHA1' /*&& url.protocol == 'https:'*/)
+      if(algorithm == 'DH-SHA1')
       {
-        openid.associate(provider, callback, 'no-encryption-256');
+        if(strict && url.protocol != 'https:')
+        {
+          callback({ error: 'Channel is insecure and no encryption method is supported by provider' });
+        }
+        else
+        {
+          openid.associate(provider, callback, strict, 'no-encryption-256');
+        }
       }
       else if(algorithm == 'no-encryption-256')
       {
-        openid.associate(provider, callback, 'no-encryption');
+        if(strict && url.protocol != 'https:')
+        {
+          callback({ error: 'Channel is insecure and no encryption method is supported by provider' });
+        }
+        else
+        {
+          openid.associate(provider, callback, strict, 'no-encryption');
+        }
       }
       else if(algorithm == 'DH-SHA256')
       {
-        openid.associate(provider, callback, 'DH-SHA1');
+        openid.associate(provider, callback, strict, 'DH-SHA1');
       }
       else
       {
@@ -666,7 +676,7 @@ function _generateAssociationRequestParameters(version, algorithm)
   return params;
 }
 
-openid.authenticate = function(identifier, returnUrl, realm, immediate, stateless, callback, extensions)
+openid.authenticate = function(identifier, returnUrl, realm, immediate, stateless, callback, extensions, strict)
 {
   openid.discover(identifier, function(providers, version)
   {
@@ -694,7 +704,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
           }
           
           _requestAuthentication(provider, answer.assoc_handle, returnUrl, realm, immediate, extensions || {}, callback);
-        });
+        }, strict);
       }
     }
   });
