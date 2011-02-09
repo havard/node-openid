@@ -59,7 +59,7 @@ openid.RelyingParty.prototype.authenticate = function(identifier, immediate, cal
 
 openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
 {
-  openid.verifyAssertion(requestOrUrl, callback, this.stateeless);
+  openid.verifyAssertion(requestOrUrl, callback, this.stateless);
 }
 
 function _isDef(e)
@@ -819,11 +819,11 @@ function _checkSignature(params, callback, stateless)
 
   if(stateless)
   {
-    _checkSignatureUsingAssociation(params, callback);
+    _checkSignatureUsingProvider(params, callback);
   }
   else
   {
-    _checkSignatureUsingProvider(params, callback);
+    _checkSignatureUsingAssociation(params, callback);
   }
 }
 
@@ -852,7 +852,14 @@ function _checkSignatureUsingAssociation(params, callback)
   hmac.update(message);
   var ourSignature = hmac.digest('base64');
 
-  callback({ authenticated: ourSignature == params['openid.sig']});
+  if(ourSignature == params['openid.sig'])
+  {
+    callback({ authenticated: true });
+  }
+  else
+  {
+    callback({ authenticated: false, error: 'Invalid signature' });
+  }
 }
 
 function _checkSignatureUsingProvider(params, callback)
@@ -878,7 +885,15 @@ function _checkSignatureUsingProvider(params, callback)
     else
     {
       data = _decodePostData(data);
-      callback({ authenticated: data['is_valid']});
+
+      if(data['is_valid'] == 'true')
+      {
+        callback({ authenticated: true });
+      }
+      else
+      {
+        callback({ authenticated: false, error: 'Invalid signature' });
+      }
     }
   });
 }
