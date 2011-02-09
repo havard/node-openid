@@ -59,7 +59,7 @@ openid.RelyingParty.prototype.authenticate = function(identifier, immediate, cal
 
 openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
 {
-  openid.verifyAssertion(requestOrUrl, callback, this.stateeless);
+  openid.verifyAssertion(requestOrUrl, callback, this.stateless);
 }
 
 function _isDef(e)
