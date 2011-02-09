@@ -200,3 +200,6 @@ exports.testVerificationUrlUsingRelyingParty = function(test)
     test.done();
   });
 }
+
+// FIXME: Need verification tests! Maybe the library will include identity
+// provider support someday which may be used to test against itself

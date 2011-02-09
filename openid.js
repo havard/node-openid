@@ -821,7 +821,7 @@ function _checkSignature(params, callback, stateless)
     return callback({ authenticated: false, error: 'No signature in response' });
   }
 
-  if(stateless)
+  if(!stateless)
   {
     _checkSignatureUsingAssociation(params, callback);
   }
@@ -855,8 +855,15 @@ function _checkSignatureUsingAssociation(params, callback)
   var hmac = crypto.createHmac(association.type, _base64ToPlain(association.secret));
   hmac.update(message);
   var ourSignature = hmac.digest('base64');
-
-  callback({ authenticated: ourSignature == params['openid.sig']});
+  if(ourSignature == params['openid.sig'])
+  {
+    callback({ authenticated: true, identifier: params['openid.claimed_id'],
+      params: params });
+  }
+  else
+  {
+    callback({ authenticated: false, error: 'Signature mismatch'});
+  }
 }
 
 function _checkSignatureUsingProvider(params, callback)
@@ -882,7 +889,15 @@ function _checkSignatureUsingProvider(params, callback)
     else
     {
       data = _decodePostData(data);
-      callback({ authenticated: data['is_valid']});
+      if(data['is_valid'] == 'true') // string matching
+      {
+        callback({ authenticated: true, identifier: data['openid.claimed_id'],
+          params: data });
+      }
+      else
+      {
+        callback({ authenticated: false, error: 'Stateless authentication failed' });
+      }
     }
   });
 }
