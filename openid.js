@@ -1,5 +1,3 @@
-/* -*- Mode: JS; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set sw=2 ts=2 et tw=80 : */
 /* OpenID for node.js
  *
  * http://ox.no/software/node-openid
@@ -23,6 +21,9 @@
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ *
+ * -*- Mode: JS; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- 
+ * vim: set sw=2 ts=2 et tw=80 : 
  */
 
 require.paths.unshift(__dirname + '/lib');
@@ -40,6 +41,26 @@ var bigint = require('bigint'),
 var _associations = {};
 
 var openid = exports;
+
+openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions)
+{
+  this.returnUrl = returnUrl;
+  this.realm = realm || null;
+  this.stateless = stateless;
+  this.strict = strict;
+  this.extensions = extensions;
+}
+
+openid.RelyingParty.prototype.authenticate = function(identifier, immediate, callback)
+{ 
+  openid.authenticate(identifier, this.returnUrl, this.realm, 
+      immediate, this.stateless, callback, this.extensions);
+}
+
+openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
+{
+  openid.verifyAssertion(requestOrUrl, callback, this.stateeless);
+}
 
 function _isDef(e)
 {
@@ -649,33 +670,41 @@ function _generateAssociationRequestParameters(version, algorithm)
   return params;
 }
 
-openid.authenticate = function(identifier, returnUrl, realm, immediate, callback, extensions)
+openid.authenticate = function(identifier, returnUrl, realm, immediate, stateless, callback, extensions)
 {
   openid.discover(identifier, function(providers, version)
   {
     if(!providers || providers.length == 0)
     {
-      callback(null, "No provider discovered for identity");
+      callback(null, null);
     }
 
     for(var p in providers)
     {
       var provider = providers[p];
-      openid.associate(provider, function(answer)
+      
+      if(stateless)
       {
-        if(!answer || answer.error)
-        {
-          // TODO: Do dumb/stateless mode
-          callback(null, answer.error);
-        }
+        _requestAuthentication(provider, null, returnUrl, realm, immediate, extensions || {}, callback);
         
-        _requestAuthentication(provider, answer.assoc_handle, returnUrl, realm, immediate, callback, extensions || {});
-      });
+      }
+      else
+      {
+        openid.associate(provider, function(answer)
+        {
+          if(!answer || answer.error)
+          {
+            _requestAuthentication(provider, null, returnUrl, realm, immediate, extensions || {}, callback);
+          }
+          
+          _requestAuthentication(provider, answer.assoc_handle, returnUrl, realm, immediate, extensions || {}, callback);
+        });
+      }
     }
   });
 }
 
-function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immediate, callback, extensions)
+function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immediate, extensions, callback)
 {
   var params = {
     'openid.mode' : immediate ? 'checkid_immediate' : 'checkid_setup'
@@ -686,9 +715,12 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
     params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
   }
 
-  for(var i in extensions) {
+  for(var i in extensions) 
+  {
     for(var key in extensions[i].requestParams)
+    {
       params[key] = extensions[i].requestParams[key];
+    }
   }
 
   // TODO: 1.1 compatibility
@@ -714,10 +746,6 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
   {
     params['openid.assoc_handle'] = assoc_handle;
   }
-  else
-  {
-    // TODO: This is stateless mode
-  }
 
   if(returnUrl)
   {
@@ -738,7 +766,7 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
   callback(_buildUrl(provider.endpoint, params));
 }
 
-openid.verifyAssertion = function(requestOrUrl)
+openid.verifyAssertion = function(requestOrUrl, callback, stateless)
 {
   var assertionUrl = requestOrUrl;
   if(typeof(requestOrUrl) !== typeof(''))
@@ -747,28 +775,19 @@ openid.verifyAssertion = function(requestOrUrl)
   }
 
   assertionUrl = url.parse(assertionUrl);
-  assertionUrl.query = querystring.parse(assertionUrl.query);
-  var params = _fixParams(assertionUrl.query);
+  var params = querystring.parse(assertionUrl.query);
 
   var assertionError = _getAssertionError(params);
   if(assertionError)
   {
-    return { authenticated: false, error: assertionError };
+    callback({ authenticated: false, error: assertionError });
   }
   if(!_checkValidHandle(params))
   {
-    return { authenticated: false, error: 'Association handle has been invalidated' };
+    callback({ authenticated: false, error: 'Association handle has been invalidated' });
   }
 
-  if(!_checkSignature(params))
-  {
-    return { authenticated: false, error: 'Provider signature is invalid or expired' };
-  }
-
-  // make sure to remove already used associations to prevent replay
-  openid.removeAssociation(params['openid.assoc_handle']);
-  return { authenticated : true , identifier: params['openid.claimed_id'],
-    params: params };
+  _checkSignature(params, callback, stateless);
 }
 
 function _getAssertionError(params)
@@ -794,18 +813,30 @@ function _checkValidHandle(params)
   return !_isDef(params['openid.invalidate_handle']);
 }
 
-function _checkSignature(params)
+function _checkSignature(params, callback, stateless)
 {
   if(!_isDef(params['openid.signed']) ||
     !_isDef(params['openid.sig']))
   {
-    return false;
+    return callback({ authenticated: false, error: 'No signature in response' });
   }
 
+  if(stateless)
+  {
+    _checkSignatureUsingAssociation(params, callback);
+  }
+  else
+  {
+    _checkSignatureUsingProvider(params, callback);
+  }
+}
+
+function _checkSignatureUsingAssociation(params, callback)
+{
   var association = openid.loadAssociation(params['openid.assoc_handle']);
   if(!association)
   {
-    return false;
+    return callback({ authenticated: false, error: 'Invalid association handle'});
   }
 
   var message = '';
@@ -816,7 +847,7 @@ function _checkSignature(params)
     var value = params['openid.' + param];
     if(!_isDef(value))
     {
-      return false;
+      return callback({ authenticated: false, error: 'At least one parameter referred in signature is not present in response'});
     }
     message += param + ':' + value + '\n';
   }
@@ -825,129 +856,209 @@ function _checkSignature(params)
   hmac.update(message);
   var ourSignature = hmac.digest('base64');
 
-  return ourSignature == params['openid.sig'];
+  callback({ authenticated: ourSignature == params['openid.sig']});
 }
 
-// Recursive parameter lookup for node v0.2.x 
-function _fixParams(params) {
-  for (var key in params) {
-    if (typeof(params[key]) == "object") {
-      _fixParams(params[key]);
-      for (var childkey in params[key]) {
-        params[key + "." + childkey] = params[key][childkey];
-      }
-      delete params[key];
+function _checkSignatureUsingProvider(params, callback)
+{
+  var requestParams = 
+  {
+    'openid.mode' : 'check_authentication'
+  };
+  for(var key in params)
+  {
+    if(params.hasOwnProperty(key) && key != 'openid.mode')
+    {
+      requestParams[key] = params[key];
     }
   }
-  return params;
+
+  _post(params['openid.op_endpoint'], requestParams, function(data, headers, statusCode)
+  {
+    if(statusCode != 200 || data == null)
+    {
+      callback({ authenticated: false, error: 'Invalid assertion check from provider'});
+    }
+    else
+    {
+      data = _decodePostData(data);
+      callback({ authenticated: data['is_valid']});
+    }
+  });
 }
 
-/* ----- Extensions ----- */
-function _getExtensionAlias(params, ns) {
+/* ==================================================================
+ * Extensions
+ * ================================================================== 
+ */
+
+function _getExtensionAlias(params, ns) 
+{
   for (var k in params)
     if (params[k] == ns)
       return k.replace("openid.ns.", "");
 }
 
-/* Simple Registration Extension: http://openid.net/specs/openid-simple-registration-extension-1_1-01.html */
-var sreg_keys = ["nickname", "email", "fullname", "dob", "gender", "postcode", "country", "language", "timezone"];
-openid.SimpleRegistration = function SimpleRegistration(options) {
-  if (options.params) { // parsing the successful result
-    var extension = _getExtensionAlias(options.params, "http://openid.net/extensions/sreg/1.1") || "sreg";
-    for (var i in sreg_keys) {
+/* 
+ * Simple Registration Extension
+ * http://openid.net/specs/openid-simple-registration-extension-1_1-01.html
+ */
+
+var sreg_keys = ['nickname', 'email', 'fullname', 'dob', 'gender', 'postcode', 'country', 'language', 'timezone'];
+
+openid.SimpleRegistration = function SimpleRegistration(options) 
+{
+  if (options.params) 
+  { 
+    var extension = _getExtensionAlias(options.params, 'http://openid.net/extensions/sreg/1.1') || 'sreg';
+    for (var i in sreg_keys) 
+    {
       var key = sreg_keys[i];
-      if (options.params["openid." + extension + "." + key])
-        this[key] = options.params["openid." + extension + "." + key];
+      if (options.params['openid.' + extension + '.' + key])
+        this[key] = options.params['openid.' + extension + '.' + key];
     }
-  } else { // constructing the params for the auth request
-    this.requestParams = {"openid.ns.sreg": "http://openid.net/extensions/sreg/1.1"};
+  } 
+  else 
+  {
+    this.requestParams = {'openid.ns.sreg': 'http://openid.net/extensions/sreg/1.1'};
     if (options.policy_url)
-      this.requestParams["openid.sreg.policy_url"] = options.policy_url;
+      this.requestParams['openid.sreg.policy_url'] = options.policy_url;
     var required = [];
     var optional = [];
-    for (var i in sreg_keys) {
+    for (var i in sreg_keys) 
+    {
       var key = sreg_keys[i];
-      if (options[key]) {
-        if (options[key] == "required")
+      if (options[key]) 
+      {
+        if (options[key] == 'required')
+        {
           required.push(key);
+        }
         else
+        {
           optional.push(key);
+        }
       }
       if (required.length)
-        this.requestParams["openid.sreg.required"] = required.join(",");
+      {
+        this.requestParams['openid.sreg.required'] = required.join(',');
+      }
       if (optional.length)
-        this.requestParams["openid.sreg.optional"] = optional.join(",");
+      {
+        this.requestParams['openid.sreg.optional'] = optional.join(',');
+      }
     }
   }
 }
 
-/* User Interface Extension: http://svn.openid.net/repos/specifications/user_interface/1.0/trunk/openid-user-interface-extension-1_0.html */
-openid.UserInterface = function UserInterface(options) {
-  if (typeof(options) != "object")
-    options = {mode: options || "popup"};
-  this.requestParams = {"openid.ns.ui": "http://specs.openid.net/extensions/ui/1.0"};
-  for (var k in options) {
-    this.requestParams["openid.ui." + k] = options[k];
+/* 
+ * User Interface Extension
+ * http://svn.openid.net/repos/specifications/user_interface/1.0/trunk/openid-user-interface-extension-1_0.html 
+ */
+openid.UserInterface = function UserInterface(options) 
+{
+  if (typeof(options) != 'object')
+  {
+    options = { mode: options || 'popup' };
+  }
+
+  this.requestParams = {'openid.ns.ui': 'http://specs.openid.net/extensions/ui/1.0'};
+  for (var k in options) 
+  {
+    this.requestParams['openid.ui.' + k] = options[k];
   }
 }
 
-/* Attribute Exchange Extension: http://openid.net/specs/openid-attribute-exchange-1_0.html */
-/* also see http://www.axschema.org/types/ and http://code.google.com/intl/de-DE/apis/accounts/docs/OpenID.html#Parameters */
+/* 
+ * Attribute Exchange Extension
+ * http://openid.net/specs/openid-attribute-exchange-1_0.html 
+ * Also see:
+ *  - http://www.axschema.org/types/ 
+ *  - http://code.google.com/intl/de-DE/apis/accounts/docs/OpenID.html#Parameters
+ */
 // TODO: count handling
-var attributeMapping = {
-    "http://axschema.org/contact/country/home": "country"
-  , "http://axschema.org/contact/email": "email"
-  , "http://axschema.org/namePerson/first": "firstname"
-  , "http://axschema.org/pref/language": "language"
-  , "http://axschema.org/namePerson/last": "lastname"
-  // the following are not in the google document:
-  , "http://axschema.org/namePerson/friendly": "nickname"
-  , "http://axschema.org/namePerson": "fullname"
+
+var attributeMapping = 
+{
+    'http://axschema.org/contact/country/home': 'country'
+  , 'http://axschema.org/contact/email': 'email'
+  , 'http://axschema.org/namePerson/first': 'firstname'
+  , 'http://axschema.org/pref/language': 'language'
+  , 'http://axschema.org/namePerson/last': 'lastname'
+  // The following are not in the Google document:
+  , 'http://axschema.org/namePerson/friendly': 'nickname'
+  , 'http://axschema.org/namePerson': 'fullname'
 };
-openid.AttributeExchange = function AttributeExchange(options) {
-  if (options.params) { // parsing the successful result
-    var extension = _getExtensionAlias(options.params, "http://openid.net/srv/ax/1.0") || "ax";
-    var regex = new RegExp("^openid\\." + extension + "\\.(value|type)\\.(\\w+)$");
+
+openid.AttributeExchange = function AttributeExchange(options) 
+{
+  if (options.params) 
+  { 
+    var extension = _getExtensionAlias(options.params, 'http://openid.net/srv/ax/1.0') || 'ax';
+    var regex = new RegExp('^openid\\.' + extension + '\\.(value|type)\\.(\\w+)$');
     var aliases = {};
     var values = {};
-    for (var k in options.params) {
+    for (var k in options.params) 
+    {
       var matches = k.match(regex);
       if (!matches)
+      {
         continue;
-      if (matches[1] == "type")
+      }
+      if (matches[1] == 'type')
+      {
         aliases[options.params[k]] = matches[2];
+      }
       else
+      {
         values[matches[2]] = options.params[k];
+      }
     }
-    for (var ns in aliases) {
+    for (var ns in aliases) 
+    {
       if (aliases[ns] in values)
+      {
         this[ns] = values[aliases[ns]];
+      }
     }
-  } else { // constructing the params for the auth request
-    this.requestParams = {"openid.ns.ax": "http://openid.net/srv/ax/1.0",
-      "openid.ax.mode" : "fetch_request"};
+  } 
+  else 
+  { 
+    this.requestParams = {'openid.ns.ax': 'http://openid.net/srv/ax/1.0',
+      'openid.ax.mode' : 'fetch_request'};
     var required = [];
     var optional = [];
-    for (var ns in options) {
-      if (options[ns] == "required")
+    for (var ns in options)
+    {
+      if (options[ns] == 'required')
+      {
         required.push(ns);
+      }
       else
+      {
         optional.push(ns);
+      }
     }
     var self = this;
-    required = required.map(function (ns, i) {
-      var attr = attributeMapping[ns] || "req" + i;
-      self.requestParams["openid.ax.type." + attr] = ns;
+    required = required.map(function(ns, i) 
+    {
+      var attr = attributeMapping[ns] || 'req' + i;
+      self.requestParams['openid.ax.type.' + attr] = ns;
       return attr;
     });
-    optional = optional.map(function (ns, i) {
-      var attr = attributeMapping[ns] || "opt" + i;
-      self.requestParams["openid.ax.type." + attr] = ns;
+    optional = optional.map(function(ns, i)
+    {
+      var attr = attributeMapping[ns] || 'opt' + i;
+      self.requestParams['openid.ax.type.' + attr] = ns;
       return attr;
     });
     if (required.length)
-      this.requestParams["openid.ax.required"] = required.join(",");
+    {
+      this.requestParams['openid.ax.required'] = required.join(',');
+    }
     if (optional.length)
-      this.requestParams["openid.ax.if_available"] = optional.join(",");
+    {
+      this.requestParams['openid.ax.if_available'] = optional.join(',');
+    }
   }
 }

@@ -29,11 +29,11 @@ var openid = require('openid');
 
 exports.testResolveFailed = function(test)
 {
-  openid.authenticate('example.com', 'http://example.com/verify', null, false,
-    function(data, error)
+  openid.authenticate('example.com', 'http://example.com/verify', null, false, false,
+    function(url, provider)
     {
-      assert.equal(null, data);
-      assert.ok(error);
+      assert.equal(null, url);
+      assert.equal(null, provider);
       test.done();
     });
 }
@@ -144,7 +144,7 @@ exports.testAssociateWithOpenID11 = function(test)
 exports.testImmediateAuthenticationWithGoogle = function(test)
 {
   openid.authenticate('http://www.google.com/accounts/o8/id', 
-  'http://licensing.ox.no:8080/verify', null, true, function(url)
+  'http://example.com/verify', null, true, false, function(url)
   {
     assert.ok(url.indexOf('checkid_immediate') !== -1);
     test.done();
@@ -154,7 +154,22 @@ exports.testImmediateAuthenticationWithGoogle = function(test)
 exports.testSetupAuthenticationWithGoogle = function(test)
 {
   openid.authenticate('http://www.google.com/accounts/o8/id', 
-  'http://licensing.ox.no:8080/verify', null, false, function(url)
+  'http://example.com/verify', null, false, false, function(url)
+  {
+    assert.ok(url.indexOf('checkid_setup') !== -1);
+    test.done();
+  });
+}
+
+exports.testAuthenticationWithGoogleUsingRelyingPartyObject = function(test)
+{
+  var rp = new openid.RelyingParty(
+      'http://example.com/verify',
+      null,
+      false,
+      false,
+      null);
+  rp.authenticate('http://www.google.com/accounts/o8/id', false, function(url)
   {
     assert.ok(url.indexOf('checkid_setup') !== -1);
     test.done();
@@ -163,7 +178,41 @@ exports.testSetupAuthenticationWithGoogle = function(test)
 
 exports.testVerificationUrl = function(test)
 {
-  var result = openid.verifyAssertion('http://fu');
-  assert.ok(!result.authenticated);
-  test.done();
+  openid.verifyAssertion('http://fu', function(result)
+  {
+    assert.ok(!result.authenticated);
+    test.done();
+  });
+}
+
+exports.testVerificationUrlUsingRelyingParty = function(test)
+{
+  var rp = new openid.RelyingParty(
+      'http://example.com/verify',
+      null,
+      false,
+      false,
+      null);
+
+  rp.verifyAssertion('http://fu', function(result)
+  {
+    assert.ok(!result.authenticated);
+    test.done();
+  });
+}
+
+exports.testVerificationUrlUsingRelyingPartyWithBogusProvider = function(test)
+{
+  var rp = new openid.RelyingParty(
+      'http://example.com/verify',
+      null,
+      false,
+      false,
+      null);
+  rp.provider = { endpoint: 'http://bogus' };
+  rp.verifyAssertion('http://fu', function(result)
+  {
+    assert.ok(!result.authenticated);
+    test.done();
+  });
 }
