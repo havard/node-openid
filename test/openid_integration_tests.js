@@ -1,4 +1,7 @@
-/* OpenID for node.js
+/* -*- Mode: JS; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set sw=2 ts=2 et tw=80 : */
+/*
+ * OpenID for node.js
  *
  * http://ox.no/software/node-openid
  * http://github.com/havard/node-openid
