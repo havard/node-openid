@@ -200,19 +200,3 @@ exports.testVerificationUrlUsingRelyingParty = function(test)
     test.done();
   });
 }
-
-exports.testVerificationUrlUsingRelyingPartyWithBogusProvider = function(test)
-{
-  var rp = new openid.RelyingParty(
-      'http://example.com/verify',
-      null,
-      false,
-      false,
-      null);
-  rp.provider = { endpoint: 'http://bogus' };
-  rp.verifyAssertion('http://fu', function(result)
-  {
-    assert.ok(!result.authenticated);
-    test.done();
-  });
-}
