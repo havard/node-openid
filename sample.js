@@ -104,7 +104,7 @@ var server = require('http').createServer(
               }
               res.writeHead(200);
               res.end(result.authenticated 
-                  ? 'Success :)\n' + attributes.join('\n') 
+                  ? 'Success using "' + result.identifier + '" :)\n' + attributes.join('\n')
                   : 'Failure :(\n' + result.error);
             });
         }

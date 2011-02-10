@@ -895,7 +895,7 @@ function _checkSignatureUsingAssociation(params, callback)
 
   if(ourSignature == params['openid.sig'])
   {
-    callback({ authenticated: true });
+    callback({ authenticated: true, identifier: params['openid.claimed_id'], params: params });
   }
   else
   {
@@ -929,7 +929,7 @@ function _checkSignatureUsingProvider(params, callback)
 
       if(data['is_valid'] == 'true')
       {
-        callback({ authenticated: true });
+        callback({ authenticated: true, identifier: params['openid.claimed_id'], params: params });
       }
       else
       {
