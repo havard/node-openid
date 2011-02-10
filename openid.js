@@ -298,12 +298,12 @@ function _parseXrds(xrdsUrl, xrdsData)
     provider.endpoint = service.uri;
     if(/https?:\/\/xri./.test(xrdsUrl))
     {
-      provider.claimedIdentifier = service.canonicalIdentifier;
+      provider.claimedIdentifier = service.id;
     }
     if(service.type == 'http://specs.openid.net/auth/2.0/signon')
     {
       provider.version = 'http://specs.openid.net/auth/2.0';
-      provider.localIdentifier = service.localIdentifier;
+      provider.localIdentifier = service.id;
     }
     else if(service.type == 'http://specs.openid.net/auth/2.0/server')
     {
@@ -494,20 +494,29 @@ openid.discover = function(identifier, callback)
   }
 
   // Try XRDS/Yadis discovery
-
-  _resolveXri(identifier, function(data)
+  _resolveXri(identifier, function(providers)
   {
-    if(data == null)
+    if(providers == null)
     {
       // Fallback to HTML discovery
-      _resolveHtml(identifier, function(data)
+      _resolveHtml(identifier, function(providers)
       {
-        callback(data);
+        callback(providers);
       });
     }
     else
     {
-      callback(data);
+      // Add claimed identifier to providers with local identifiers
+      // to ensure correct resolution of identities
+      for(var p in providers)
+      {
+        var provider = providers[p];
+        if(!provider.claimedIdentifier && provider.localIdentifier)
+        {
+          provider.claimedIdentifier = identifier;
+        }
+      }
+      callback(providers);
     }
   });
 }
@@ -682,31 +691,49 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
   {
     if(!providers || providers.length == 0)
     {
-      callback(null, null);
+      return callback(null);
     }
 
-    for(var p in providers)
+    var providerIndex = -1;
+
+    var chooseProvider = function successOrNext(authUrl)
     {
-      var provider = providers[p];
-      
+      if(authUrl)
+      {
+        return callback(authUrl);
+      }
+
+      if(++providerIndex >= providers.length)
+      {
+        return callback(null);
+      }
+
+      var provider = providers[providerIndex];
       if(stateless)
       {
-        _requestAuthentication(provider, null, returnUrl, realm, immediate, extensions || {}, callback);
-        
+        _requestAuthentication(provider, null, returnUrl, 
+          realm, immediate, extensions || {}, successOrNext);
       }
+
       else
       {
         openid.associate(provider, function(answer)
         {
           if(!answer || answer.error)
           {
-            _requestAuthentication(provider, null, returnUrl, realm, immediate, extensions || {}, callback);
+            nextProvider(null);
           }
-          
-          _requestAuthentication(provider, answer.assoc_handle, returnUrl, realm, immediate, extensions || {}, callback);
-        }, strict);
+          else
+          {
+            _requestAuthentication(provider, answer.assoc_handle, returnUrl, 
+              realm, immediate, extensions || {}, successOrNext);
+          }
+        });
+        
       }
-    }
+    };
+
+    chooseProvider();
   });
 }
 
