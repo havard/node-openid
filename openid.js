@@ -725,7 +725,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
         {
           if(!answer || answer.error)
           {
-            nextProvider(null);
+            successOrNext();
           }
           else
           {
