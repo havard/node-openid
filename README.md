@@ -29,44 +29,50 @@ using OpenID for node.js for authentication:
     var openid = require('openid');
     var url = require('url');
     var querystring = require('querystring');
+    var relyingParty = new openid.RelyingParty(
+        'http://example.com/verify', // Verification URL (yours)
+        null, // Realm (optional, specifies realm for OpenID authentication)
+        false, // Use stateless verification
+        false, // Strict mode
+        extensions); // List of extensions to enable and include
+
+
     var server = require('http').createServer(
         function(req, res)
         {
             var parsedUrl = url.parse(req.url);
-            if(parsedUrl.pathname == '/verify')
+            if(parsedUrl.pathname == '/authenticate')
+            { 
+              // User supplied identifier
+              var query = querystring.parse(parsedUrl.query);
+              var identifier = query.openid_identifier;
+
+              // Resolve identifier, associate, and build authentication URL
+              relyingParty.authenticate(identifier, false, function(authUrl)
+                  {
+                    if (!authUrl)
+                    {
+                      res.writeHead(500);
+                      res.end(error);
+                    }
+                    else
+                    {
+                      res.writeHead(302, { Location: authUrl });
+                      res.end();
+                    }
+                  });
+            }
+            else if(parsedUrl.pathname == '/verify')
             {
                 // Verify identity assertion
-                var result = openid.verifyAssertion(req); // or req.url
-                var attributes = [];
-                var sreg = new openid.SimpleRegistration(result);
-                for (var k in sreg)
-                  attributes.push(k + ": " + sreg[k]);
-                var ax = new openid.AttributeExchange(result);
-                for (var k in ax)
-                  attributes.push(k + ": " + ax[k]);
-                res.writeHead(200);
-                res.end(result.authenticated ? 'Success :)\n' + attributes.join("\n") : 'Failure :(\n' + result.error);
-            }
-            else if(parsedUrl.pathname == '/authenticate')
-            {
-                // Resolve identifier, associate, build authentication URL
-                openid.authenticate(
-                    querystring.parse(parsedUrl.query).openid_identifier, // user supplied identifier
-                    'http://example.com/verify', // our callback URL
-                    null, // realm (optional)
-                    false, // attempt immediate authentication first?
-                    function(authUrl)
-                    {
-                        res.writeHead(302, { Location: authUrl });
-                        res.end();
-                    }, [new openid.UserInterface(), new openid.SimpleRegistration({
-                      "nickname" : true, "email" : true, "fullname" : true,
-                      "dob" : true, "gender" : true, "postcode" : true,
-                      "country" : true, "language" : true, "timezone" : true}),
-                      new openid.AttributeExchange({
-                      "http://axschema.org/contact/email": "required",
-                      "http://axschema.org/namePerson/friendly": "required",
-                      "http://axschema.org/namePerson": "required"})]);
+                // NOTE: Passing just the URL is also possible
+                relyingParty.verifyAssertion(req, function(result)
+                {
+                  res.writeHead(200);
+                  res.end(result.authenticated 
+                      ? 'Success :)'
+                      : 'Failure :(');
+                });
             }
             else
             {
@@ -81,6 +87,8 @@ using OpenID for node.js for authentication:
             }
         });
     server.listen(80);
+
+A more elaborate example can be found in `sample.js` in the GitHub repository.
 
 ## Storing association state
 
