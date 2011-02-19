@@ -350,7 +350,7 @@ function _matchMetaTag(html)
 
 function _matchLinkTag(html, rel)
 {
-  var providerLinkMatches = new RegExp('<link\\s+.*?rel="' + rel + '".*?>', 'ig').exec(html);
+  var providerLinkMatches = new RegExp('<link\\s+.*?rel="[^"]*?' + rel + '[^"]*?".*?>', 'ig').exec(html);
 
   if(!providerLinkMatches || providerLinkMatches.length < 1)
   {
@@ -615,6 +615,10 @@ openid.associate = function(provider, callback, strict, algorithm)
       {
         callback(data);
       }
+    }
+    else if (data.error)
+    {
+      callback(data);
     }
     else
     {
