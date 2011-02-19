@@ -158,7 +158,8 @@ function _get(getUrl, params, callback, redirects)
   {
     path += '?' + getUrl.query;
   }
-  var options = {
+  var options = 
+  {
     host: getUrl.hostname,
     port: _isDef(getUrl.port) ? getUrl.port :
       (getUrl.protocol == 'https:' ? 443 : 80),
@@ -183,33 +184,38 @@ function _get(getUrl, params, callback, redirects)
         callback(data, res.headers, res.statusCode);
       }
     });
-  }).on("error", function () {
-    callback();
+  }).on('error', function(error) 
+  {
+    callback(error);
   });
 }
 
-function _post(getUrl, data, callback, redirects)
+function _post(postUrl, data, callback, redirects)
 {
   redirects = redirects || 5;
-  getUrl = url.parse(getUrl);
+  postUrl = url.parse(postUrl);
 
-  var path = getUrl.pathname || '/';
-  if(getUrl.query)
+  var path = postUrl.pathname || '/';
+  if(postUrl.query)
   {
-    path += '?' + getUrl.query;
+    path += '?' + postUrl.query;
   }
 
   var encodedData = _encodePostData(data);
-  var options = {
-    host: getUrl.hostname,
-    port: _isDef(getUrl.port) ? getUrl.port :
-      (getUrl.protocol == 'https:' ? 443 : 80),
+  var options = 
+  {
+    host: postUrl.hostname,
     path: path,
-    headers: {'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': encodedData.length},
+    port: _isDef(postUrl.port) ? postUrl.port :
+      (postUrl.protocol == 'https:' ? 443 : 80),
+    headers: 
+    {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': encodedData.length
+    },
     method: 'POST'
   };
-  (getUrl.protocol == 'https:' ? https : http).request(options, function(res)
+  (postUrl.protocol == 'https:' ? https : http).request(options, function(res)
   {
     var data = '';
     res.on('data', function(chunk)
@@ -228,8 +234,9 @@ function _post(getUrl, data, callback, redirects)
         callback(data, res.headers, res.statusCode);
       }
     });
-  }).on("error", function () {
-    callback();
+  }).on('error', function(error)
+  {
+    callback(error);
   }).end(encodedData);
 }
 
@@ -721,7 +728,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
         {
           if(!answer || answer.error)
           {
-            nextProvider(null);
+            successOrNext();
           }
           else
           {
