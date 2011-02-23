@@ -837,7 +837,6 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
   {
     if(extensions && result.authenticated)
     {
-      console.log(params);
       for(var ext in extensions)
       {
         var instance = extensions[ext];
