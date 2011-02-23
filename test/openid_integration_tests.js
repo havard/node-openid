@@ -138,6 +138,18 @@ exports.testImmediateAuthenticationWithGoogle = function(test)
   });
 }
 
+exports.testImmediateAuthenticationWithGoogleAppsForDomains = function(test)
+{
+  // domain must be a valid google apps domain with openid enabled.
+  openid.authenticate('https://www.google.com/accounts/o8/site-xrds?hd=opower.com',
+  'http://example.com/verify', null, true, false, function(url)
+  {
+    assert.ok(url.indexOf('checkid_immediate') !== -1);
+    test.done();
+  });
+}
+
+
 exports.testSetupAuthenticationWithGoogle = function(test)
 {
   openid.authenticate('http://www.google.com/accounts/o8/id', 
