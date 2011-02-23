@@ -34,7 +34,7 @@ using OpenID for node.js for authentication:
         null, // Realm (optional, specifies realm for OpenID authentication)
         false, // Use stateless verification
         false, // Strict mode
-        extensions); // List of extensions to enable and include
+        []); // List of extensions to enable and include
 
 
     var server = require('http').createServer(
