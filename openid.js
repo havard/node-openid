@@ -126,6 +126,7 @@ openid.removeAssociation = function(handle)
 function _buildUrl(theUrl, params)
 {
   theUrl = url.parse(theUrl);
+  theUrl.search = false;
   if(params)
   {
     if(!theUrl.query)
