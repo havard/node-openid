@@ -174,29 +174,3 @@ exports.testAuthenticationWithGoogleUsingRelyingPartyObject = function(test)
     test.done();
   });
 }
-
-exports.testVerificationUrl = function(test)
-{
-  openid.verifyAssertion('http://fu', function(result)
-  {
-    assert.ok(!result.authenticated);
-    test.done();
-  });
-}
-
-exports.testVerificationUrlUsingRelyingParty = function(test)
-{
-  var rp = new openid.RelyingParty(
-      'http://example.com/verify',
-      null,
-      false,
-      false,
-      null);
-
-  rp.verifyAssertion('http://fu', function(result)
-  {
-    assert.ok(!result.authenticated);
-    test.done();
-  });
-}
-
