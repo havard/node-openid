@@ -826,11 +826,11 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
   var assertionError = _getAssertionError(params);
   if(assertionError)
   {
-    callback({ authenticated: false, error: assertionError });
+    return callback({ authenticated: false, error: assertionError });
   }
   if(!_checkValidHandle(params))
   {
-    callback({ authenticated: false, error: 'Association handle has been invalidated' });
+    return callback({ authenticated: false, error: 'Association handle has been invalidated' });
   }
 
   _checkSignature(params, function(result)
