@@ -88,21 +88,15 @@ var server = require('http').createServer(
             // NOTE: Passing just the URL is also possible
             relyingParty.verifyAssertion(req, function(result)
             {
-              var attributes = [];
-              var sreg = new openid.SimpleRegistration(result);
-              for (var k in sreg)
-              {
-                attributes.push(k + ": " + sreg[k]);
-              }
-              var ax = new openid.AttributeExchange(result);
-              for (var k in ax)
-              {
-                attributes.push(k + ": " + ax[k]);
-              }
+              // Result contains properties:
+              // - authenticated (true/false)
+              // - error (message, only if not authenticated)
+              // - answers from any extensions (e.g. 
+              //   "http://axschema.org/contact/email" if requested 
+              //   and present at provider)
               res.writeHead(200);
-              res.end(result.authenticated 
-                  ? 'Success :)\n' + attributes.join('\n') 
-                  : 'Failure :(\n' + result.error);
+              res.end((result.authenticated ? 'Success :)' : 'Failure :(') +
+                '\n\n' + JSON.stringify(result));
             });
         }
         else
