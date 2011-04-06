@@ -659,7 +659,7 @@ function _generateAssociationRequestParameters(version, algorithm)
 
   if(version.indexOf('2.0') !== -1)
   {
-    params['openid.ns'] = version;
+    params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
   }
 
   if(algorithm == 'DH-SHA1')
