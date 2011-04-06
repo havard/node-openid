@@ -504,7 +504,7 @@ openid.discover = function(identifier, callback)
   // Try XRDS/Yadis discovery
   _resolveXri(identifier, function(providers)
   {
-    if(providers == null)
+    if(providers == null || providers.length == 0)
     {
       // Fallback to HTML discovery
       _resolveHtml(identifier, function(providers)
