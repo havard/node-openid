@@ -125,7 +125,7 @@ openid.removeAssociation = function(handle)
 
 function _buildUrl(theUrl, params)
 {
-  theUrl = url.parse(theUrl);
+  theUrl = url.parse(theUrl, true);
   theUrl.search = false;
   if(params)
   {
@@ -135,7 +135,6 @@ function _buildUrl(theUrl, params)
     }
     else
     {
-      theUrl.query = querystring.parse(theUrl.query);
       for(var key in params)
       {
         if(params.hasOwnProperty(key))
@@ -144,11 +143,6 @@ function _buildUrl(theUrl, params)
         }
       }
     }
-  }
-
-  if(theUrl.query != '')
-  {
-    theUrl.search = '?' + theUrl.query;
   }
 
   return url.format(theUrl);
