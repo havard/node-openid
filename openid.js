@@ -146,6 +146,11 @@ function _buildUrl(theUrl, params)
     }
   }
 
+  if(theUrl.query != '')
+  {
+    theUrl.search = '?' + theUrl.query;
+  }
+
   return url.format(theUrl);
 }
 
