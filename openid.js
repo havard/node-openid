@@ -1134,7 +1134,7 @@ openid.AttributeExchange.prototype.fillResult = function(params, result)
   {
     if (aliases[ns] in values)
     {
-      result[ns] = values[aliases[ns]];
+      result[aliases[ns]] = values[aliases[ns]];
     }
   }
 }
