@@ -1138,3 +1138,19 @@ openid.AttributeExchange.prototype.fillResult = function(params, result)
     }
   }
 }
+
+openid.OAuthHybrid = function(options)
+{
+  this.requestParams = {
+    'openid.ns.oauth'       : 'http://specs.openid.net/extensions/oauth/1.0',
+    'openid.oauth.consumer' : options['consumerKey'],
+    'openid.oauth.scope'    : options['scope']};
+}
+
+openid.OAuthHybrid.prototype.fillResult = function(params, result)
+{
+  if(params['openid.ext2.request_token'] !== undefined)
+  {
+    result['request_token'] = params['openid.ext2.request_token'];
+  }
+};
