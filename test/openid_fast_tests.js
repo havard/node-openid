@@ -67,3 +67,25 @@ exports.testVerificationUrlUsingRelyingParty = function(test)
     test.done();
   });
 }
+
+
+exports.testAttributeExchange = function(test)
+{
+  var ax = new openid.AttributeExchange(),
+      results = {},
+      exampleParams = {
+        'openid.ax.type.email' :  'http://axschema.org/contact/email',
+        'openid.ax.value.email' : 'fred.example@gmail.com',
+        'openid.ax.type.language' : 'http://axschema.org/pref/language',
+        'openid.ax.value.language' : 'english'
+      }
+  ax.fillResult(exampleParams, results);
+  
+  assert.notEqual(results['email'], undefined);
+  assert.notEqual(results['language'], undefined);
+  
+  assert.equal('fred.example@gmail.com', results['email']);
+  assert.equal('english', results['language']);
+  
+  test.done();
+}
