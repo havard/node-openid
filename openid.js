@@ -1149,7 +1149,7 @@ openid.OAuthHybrid = function(options)
 
 openid.OAuthHybrid.prototype.fillResult = function(params, result)
 {
-  var extension = _getExtensionAlias(params, 'http://specs.openid.net/extensions/oauth/1.0') || 'ext2'
+  var extension = _getExtensionAlias(params, 'http://specs.openid.net/extensions/oauth/1.0') || 'oauth'
     , token_attr = 'openid.'+extension+'.request_token';
   
   
