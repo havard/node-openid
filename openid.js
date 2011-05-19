@@ -126,7 +126,7 @@ openid.removeAssociation = function(handle)
 function _buildUrl(theUrl, params)
 {
   theUrl = url.parse(theUrl, true);
-  theUrl.search = false;
+  delete theUrl['search'];
   if(params)
   {
     if(!theUrl.query)
@@ -819,8 +819,8 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
     assertionUrl = requestOrUrl.url;
   }
 
-  assertionUrl = url.parse(assertionUrl);
-  var params = querystring.parse(assertionUrl.query);
+  assertionUrl = url.parse(assertionUrl, true);
+  var params = assertionUrl.query;
 
   var assertionError = _getAssertionError(params);
   if(assertionError)
