@@ -173,7 +173,7 @@ function _get(getUrl, params, callback, redirects)
       data += chunk;
     });
 
-    res.on('end', function()
+    var done = function()
     {
       if(res.headers.location && --redirects)
       {
@@ -183,7 +183,10 @@ function _get(getUrl, params, callback, redirects)
       {
         callback(data, res.headers, res.statusCode);
       }
-    });
+    }
+
+    res.on('end', function() { done(); });
+    res.on('close', function() { done(); });
   }).on('error', function(error) 
   {
     callback(error);
@@ -223,7 +226,7 @@ function _post(postUrl, data, callback, redirects)
       data += chunk;
     });
 
-    res.on('end', function()
+    var done = function()
     {
       if(res.headers.location && --redirects)
       {
@@ -233,7 +236,10 @@ function _post(postUrl, data, callback, redirects)
       {
         callback(data, res.headers, res.statusCode);
       }
-    });
+    }
+
+    res.on('end', function() { done(); });
+    res.on('close', function() { done(); });
   }).on('error', function(error)
   {
     callback(error);
