@@ -764,12 +764,12 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
     params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
   }
 
-  for(var i in extensions)
+  for (var i = 0; i < extensions.length; i++)
   {
     extension = extensions[i]
-    for(var key in extension.requestParams)
+    for (var key in extension.requestParams)
     {
-      if (!extension.hasOwnProperty(key)) { continue; }
+      if (!extension.requestParams.hasOwnProperty(key)) { continue; }
       params[key] = extension.requestParams[key];
     }
   }
