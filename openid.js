@@ -173,7 +173,7 @@ function _get(getUrl, params, callback, redirects)
       data += chunk;
     });
 
-    res.on('end', function()
+    var done = function()
     {
       if(res.headers.location && --redirects)
       {
@@ -183,7 +183,10 @@ function _get(getUrl, params, callback, redirects)
       {
         callback(data, res.headers, res.statusCode);
       }
-    });
+    }
+
+    res.on('end', function() { done(); });
+    res.on('close', function() { done(); });
   }).on('error', function(error) 
   {
     callback(error);
@@ -223,7 +226,7 @@ function _post(postUrl, data, callback, redirects)
       data += chunk;
     });
 
-    res.on('end', function()
+    var done = function()
     {
       if(res.headers.location && --redirects)
       {
@@ -233,7 +236,10 @@ function _post(postUrl, data, callback, redirects)
       {
         callback(data, res.headers, res.statusCode);
       }
-    });
+    }
+
+    res.on('end', function() { done(); });
+    res.on('close', function() { done(); });
   }).on('error', function(error)
   {
     callback(error);
@@ -250,9 +256,8 @@ function _decodePostData(data)
 {
   var lines = data.split('\n');
   var result = {};
-  for(var l in lines)
-  {
-    var line = lines[l];
+  for (var i = 0; i < lines.length ; i++) {
+    var line = lines[i]
     var colon = line.indexOf(':');
     if(colon === -1)
     {
@@ -759,11 +764,13 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
     params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
   }
 
-  for(var i in extensions) 
+  for(var i in extensions)
   {
-    for(var key in extensions[i].requestParams)
+    extension = extensions[i]
+    for(var key in extension.requestParams)
     {
-      params[key] = extensions[i].requestParams[key];
+      if (!extension.hasOwnProperty(key)) { continue; }
+      params[key] = extension.requestParams[key];
     }
   }
 
@@ -838,6 +845,7 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
     {
       for(var ext in extensions)
       {
+        if (!extensions.hasOwnProperty(ext)) { continue; }
         var instance = extensions[ext];
         instance.fillResult(params, result);
       }
@@ -898,9 +906,9 @@ function _checkSignatureUsingAssociation(params, callback)
 
   var message = '';
   var signedParams = params['openid.signed'].split(',');
-  for(var index in signedParams)
+  for(var i = 0; i < signedParams.length; i++)
   {
-    var param = signedParams[index];
+    var param = signedParams[i];
     var value = params['openid.' + param];
     if(!_isDef(value))
     {
@@ -985,7 +993,7 @@ openid.SimpleRegistration = function SimpleRegistration(options)
     this.requestParams['openid.sreg.policy_url'] = options.policy_url;
   var required = [];
   var optional = [];
-  for (var i in sreg_keys) 
+  for (var i = 0; i < sreg_keys.length; i++)
   {
     var key = sreg_keys[i];
     if (options[key]) 
@@ -1013,7 +1021,7 @@ openid.SimpleRegistration = function SimpleRegistration(options)
 openid.SimpleRegistration.prototype.fillResult = function(params, result)
 {
   var extension = _getExtensionAlias(params, 'http://openid.net/extensions/sreg/1.1') || 'sreg';
-  for (var i in sreg_keys) 
+  for (var i = 0; i < sreg_keys.length; i++)
   {
     var key = sreg_keys[i];
     if (params['openid.' + extension + '.' + key])
@@ -1075,6 +1083,7 @@ openid.AttributeExchange = function AttributeExchange(options)
   var optional = [];
   for (var ns in options)
   {
+    if (!options.hasOwnProperty(ns)) { continue; }
     if (options[ns] == 'required')
     {
       required.push(ns);
@@ -1113,8 +1122,9 @@ openid.AttributeExchange.prototype.fillResult = function(params, result)
   var regex = new RegExp('^openid\\.' + extension + '\\.(value|type)\\.(\\w+)$');
   var aliases = {};
   var values = {};
-  for (var k in params) 
+  for (var k in params)
   {
+    if (!params.hasOwnProperty(k)) { continue; }
     var matches = k.match(regex);
     if (!matches)
     {
