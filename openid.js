@@ -123,6 +123,11 @@ openid.removeAssociation = function(handle)
   return true;
 }
 
+openid.withAssociation = function(handle, callback)
+{
+  callback(null, openid.loadAssociation(handle));
+}
+
 function _buildUrl(theUrl, params)
 {
   theUrl = url.parse(theUrl, true);
@@ -898,37 +903,43 @@ function _checkSignature(params, callback, stateless)
 
 function _checkSignatureUsingAssociation(params, callback)
 {
-  var association = openid.loadAssociation(params['openid.assoc_handle']);
-  if(!association)
-  {
-    return callback({ authenticated: false, error: 'Invalid association handle'});
-  }
-
-  var message = '';
-  var signedParams = params['openid.signed'].split(',');
-  for(var i = 0; i < signedParams.length; i++)
-  {
-    var param = signedParams[i];
-    var value = params['openid.' + param];
-    if(!_isDef(value))
+  openid.withAssociation(params['openid.assoc_handle'], function(err, association) {
+    if(!err && !association) 
     {
-      return callback({ authenticated: false, error: 'At least one parameter referred in signature is not present in response'});
+      err = 'Invalid association handle';
     }
-    message += param + ':' + value + '\n';
-  }
 
-  var hmac = crypto.createHmac(association.type, _base64ToPlain(association.secret));
-  hmac.update(message);
-  var ourSignature = hmac.digest('base64');
+    if(err)
+    {
+      return callback({ authenticated: false, error: err});
+    }
 
-  if(ourSignature == params['openid.sig'])
-  {
-    callback({ authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
-  }
-  else
-  {
-    callback({ authenticated: false, error: 'Invalid signature' });
-  }
+    var message = '';
+    var signedParams = params['openid.signed'].split(',');
+    for(var i = 0; i < signedParams.length; i++)
+    {
+      var param = signedParams[i];
+      var value = params['openid.' + param];
+      if(!_isDef(value))
+      {
+        return callback({ authenticated: false, error: 'At least one parameter referred in signature is not present in response'});
+      }
+      message += param + ':' + value + '\n';
+    }
+
+    var hmac = crypto.createHmac(association.type, _base64ToPlain(association.secret));
+    hmac.update(message);
+    var ourSignature = hmac.digest('base64');
+
+    if(ourSignature == params['openid.sig'])
+    {
+      callback({ authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
+    }
+    else
+    {
+      callback({ authenticated: false, error: 'Invalid signature' });
+    }
+  });
 }
 
 function _checkSignatureUsingProvider(params, callback)
