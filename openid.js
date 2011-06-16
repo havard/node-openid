@@ -544,11 +544,11 @@ function _generateDiffieHellmanParameters(algorithm)
   var a = null;
   if(algorithm == 'DH-SHA1')
   {
-    a = new bigint.BigInteger(20, 1, new bigint.SecureRandom());
+    a = new bigint.BigInteger(160, 1, new bigint.SecureRandom());
   }
   else 
   {
-    a = new bigint.BigInteger(32, 1, new bigint.SecureRandom());
+    a = new bigint.BigInteger(256, 1, new bigint.SecureRandom());
   }
   var j = g.modPow(a, p);
 
