@@ -99,22 +99,24 @@ function _xor(a, b)
   return r;
 }
 
-openid.saveAssociation = function(type, handle, secret, expiry_time)
+openid.saveAssociation = function(type, handle, secret, expiry_time, callback)
 {
   setTimeout(function() {
     openid.removeAssociation(handle);
   }, expiry_time);
   _associations[handle] = {type : type, secret: secret};
+
+	callback();
 }
 
-openid.loadAssociation = function(handle)
+openid.loadAssociation = function(handle, callback)
 {
   if(_isDef(_associations[handle]))
   {
-    return _associations[handle];
+    callback(_associations[handle]);
   }
 
-  return null;
+  callback(null);
 }
 
 openid.removeAssociation = function(handle)
@@ -648,10 +650,11 @@ openid.associate = function(provider, callback, strict, algorithm)
       }
 
       openid.saveAssociation(hashAlgorithm,
-        data.assoc_handle, secret, data.expires_in * 1);
-
-      callback(data);
-    }
+        data.assoc_handle, secret, data.expires_in * 1, function(error) {
+					if (error) callback({ error: error });
+					else callback(data);
+				});
+	    }
   });
 }
 
@@ -892,43 +895,44 @@ function _checkSignature(params, callback, stateless)
   }
   else
   {
-    _checkSignatureUsingAssociation(params, callback);
+	  _checkSignatureUsingAssociation(params, callback);
   }
 }
 
 function _checkSignatureUsingAssociation(params, callback)
 {
-  var association = openid.loadAssociation(params['openid.assoc_handle']);
-  if(!association)
-  {
-    return callback({ authenticated: false, error: 'Invalid association handle'});
-  }
+  openid.loadAssociation(params['openid.assoc_handle'], function(association) {
+		if(!association)
+	  {
+	    return callback({ authenticated: false, error: 'Invalid association handle'});
+	  }
 
-  var message = '';
-  var signedParams = params['openid.signed'].split(',');
-  for(var i = 0; i < signedParams.length; i++)
-  {
-    var param = signedParams[i];
-    var value = params['openid.' + param];
-    if(!_isDef(value))
-    {
-      return callback({ authenticated: false, error: 'At least one parameter referred in signature is not present in response'});
-    }
-    message += param + ':' + value + '\n';
-  }
+	  var message = '';
+	  var signedParams = params['openid.signed'].split(',');
+	  for(var i = 0; i < signedParams.length; i++)
+	  {
+	    var param = signedParams[i];
+	    var value = params['openid.' + param];
+	    if(!_isDef(value))
+	    {
+	      return callback({ authenticated: false, error: 'At least one parameter referred in signature is not present in response'});
+	    }
+	    message += param + ':' + value + '\n';
+	  }
 
-  var hmac = crypto.createHmac(association.type, _base64ToPlain(association.secret));
-  hmac.update(message);
-  var ourSignature = hmac.digest('base64');
+	  var hmac = crypto.createHmac(association.type, _base64ToPlain(association.secret));
+	  hmac.update(message);
+	  var ourSignature = hmac.digest('base64');
 
-  if(ourSignature == params['openid.sig'])
-  {
-    callback({ authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
-  }
-  else
-  {
-    callback({ authenticated: false, error: 'Invalid signature' });
-  }
+	  if(ourSignature == params['openid.sig'])
+	  {
+	    callback({ authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
+	  }
+	  else
+	  {
+	    callback({ authenticated: false, error: 'Invalid signature' });
+	  }
+	});
 }
 
 function _checkSignatureUsingProvider(params, callback)
