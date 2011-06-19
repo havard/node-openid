@@ -73,7 +73,7 @@ var server = require('http').createServer(
                 if (!authUrl)
                 {
                   res.writeHead(500);
-                  res.end(error);
+                  res.end('Authentication failed');
                 }
                 else
                 {
