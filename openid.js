@@ -355,14 +355,14 @@ function _matchMetaTag(html)
 
 function _matchLinkTag(html, rel)
 {
-  var providerLinkMatches = new RegExp('<link\\s+.*?rel="[^"]*?' + rel + '[^"]*?".*?>', 'ig').exec(html);
+  var providerLinkMatches = new RegExp('<link\\s+.*?rel=["\'][^"\']*?' + rel + '[^"\']*?["\'].*?>', 'ig').exec(html);
 
   if(!providerLinkMatches || providerLinkMatches.length < 1)
   {
     return null;
   }
 
-  var href = /href="(.*?)"/ig.exec(providerLinkMatches[0]);
+  var href = /href=["'](.*?)["']/ig.exec(providerLinkMatches[0]);
 
   if(!href || href.length < 2)
   {
