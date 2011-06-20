@@ -39,6 +39,7 @@ var bigint = require('bigint'),
     xrds = require('xrds');
 
 var _associations = {};
+var _discoveries = {};
 
 var openid = exports;
 
@@ -123,6 +124,26 @@ openid.removeAssociation = function(handle)
   return true;
 }
 
+openid.saveDiscoveredInformation = function(provider, callback)
+{
+  if(!provider.claimedIdentifier)
+  {
+    return callback('The provider did not contain a claimed identifier');
+  }
+  _discoveries[provider.claimedIdentifier] = provider;
+  return callback(null);
+}
+
+openid.loadDiscoveredInformation = function(claimedIdentifier, callback)
+{
+  if(!_isDef(_discoveries[claimedIdentifier]))
+  {
+    return callback(null, null);
+  }
+  
+  return callback(null, _discoveries[claimedIdentifier]);
+}
+
 function _buildUrl(theUrl, params)
 {
   theUrl = url.parse(theUrl, true);
@@ -161,10 +182,11 @@ function _get(getUrl, params, callback, redirects)
   var options = 
   {
     host: getUrl.hostname,
-    port: _isDef(getUrl.port) ? getUrl.port :
+    port: _isDef(getUrl.port) ? parseInt(getUrl.port, 10) :
       (getUrl.protocol == 'https:' ? 443 : 80),
     path: path
   };
+
   (getUrl.protocol == 'https:' ? https : http).get(options, function(res)
   {
     var data = '';
@@ -177,7 +199,12 @@ function _get(getUrl, params, callback, redirects)
     {
       if(res.headers.location && --redirects)
       {
-        _get(res.headers.location, params, callback, redirects);
+        var redirectUrl = res.headers.location;
+        if(redirectUrl.indexOf('http') !== 0)
+        {
+          redirectUrl = getUrl.protocol + '//' + getUrl.hostname + ':' + options.port + (redirectUrl.indexOf('/') === 0 ? redirectUrl : '/' + redirectUrl);
+        }
+        _get(redirectUrl, params, callback, redirects);
       }
       else
       {
@@ -703,7 +730,7 @@ function _generateAssociationRequestParameters(version, algorithm)
 
 openid.authenticate = function(identifier, returnUrl, realm, immediate, stateless, callback, extensions, strict)
 {
-  openid.discover(identifier, function(providers, version)
+  openid.discover(identifier, function(providers)
   {
     if(!providers || providers.length == 0)
     {
@@ -716,7 +743,22 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
     {
       if(authUrl)
       {
-        return callback(authUrl);
+        var provider = providers[providerIndex];
+        if(provider.claimedIdentifier)
+        {
+          openid.saveDiscoveredInformation(provider, function(error)
+          {
+            if(error)
+            {
+              return callback(null);
+            }
+            return callback(authUrl);
+          });
+        }
+        else
+        {
+          return callback(authUrl);
+        }
       }
 
       if(++providerIndex >= providers.length)
@@ -839,20 +881,27 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
     return callback({ authenticated: false, error: 'Association handle has been invalidated' });
   }
 
-  _checkSignature(params, function(result)
+  _verifyDiscoveredInformation(params, function(error)
   {
-    if(extensions && result.authenticated)
+    if(error)
     {
-      for(var ext in extensions)
-      {
-        if (!extensions.hasOwnProperty(ext)) { continue; }
-        var instance = extensions[ext];
-        instance.fillResult(params, result);
-      }
+      return callback({ authenticated: false, error: error });
     }
+    _checkSignature(params, function(result)
+    {
+      if(extensions && result.authenticated)
+      {
+        for(var ext in extensions)
+        {
+          if (!extensions.hasOwnProperty(ext)) { continue; }
+          var instance = extensions[ext];
+          instance.fillResult(params, result);
+        }
+      }
 
-    callback(result);
-  }, stateless);
+      callback(result);
+    }, stateless);
+  });
 }
 
 function _getAssertionError(params)
@@ -876,6 +925,68 @@ function _getAssertionError(params)
 function _checkValidHandle(params)
 {
   return !_isDef(params['openid.invalidate_handle']);
+}
+
+function _verifyDiscoveredInformation(params, callback)
+{
+  var claimedIdentifier = params['openid.claimed_id'];
+  if(!_isDef(claimedIdentifier))
+  {
+    // If there is no claimed identifier, then the
+    // assertion is not about an identity
+    return callback(null); 
+  }
+
+  openid.loadDiscoveredInformation(claimedIdentifier, function(error, provider)
+  {
+    if(error)
+    {
+      return callback('An error occured when loading previously discovered information about the claimed identifier');
+    }
+
+    if(provider)
+    {
+      return _verifyAssertionAgainstProvider(provider, params, callback);
+    }
+
+    openid.discover(claimedIdentifier, function(providers)
+    {
+      if(!providers || !providers.length)
+      {
+        return callback('No OpenID provider was discovered for the asserted claimed identifier');
+      }
+
+      for(var i = 0; i < providers.length; ++i)
+      {
+        var provider = providers[i];
+        if(!provider.version || provider.version != params['openid.ns'])
+        {
+          continue;
+        }
+        _verifyAssertionAgainstProvider(provider, params, callback);
+      }
+
+      callback('No providers were discovered for the claimed identifier');
+    });
+  });
+}
+
+function _verifyAssertionAgainstProvider(provider, params, callback)
+{
+  if(provider.endpoint != params['openid.op_endpoint'])
+  {
+    return callback('OpenID provider endpoint in assertion response does not match discovered OpenID provider endpoint');
+  }
+  if(provider.claimedIdentifier && provider.claimedIdentifier != params['openid.claimed_id'])
+  {
+    return callback('Claimed identifier in assertion response does not match discovered claimed identifier');
+  }
+  if(provider.localIdentifier && provider.localIdentifier != params['openid.identity'])
+  {
+    return callback('Identity in assertion response does not match discovered local identifier');
+  }
+
+  return callback(null);
 }
 
 function _checkSignature(params, callback, stateless)
