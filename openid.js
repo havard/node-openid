@@ -62,28 +62,28 @@ openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
   openid.verifyAssertion(requestOrUrl, callback, this.stateless, this.extensions);
 }
 
-function _isDef(e)
+var _isDef = function(e)
 {
   var undefined;
   return e !== undefined;
 }
 
-function _toBase64(bigint)
+var _toBase64 = function(bigint)
 {
   return convert.base64.encode(convert.btwoc(convert.chars_from_hex(bigint.toString(16))));
 }
 
-function _base64ToPlain(str)
+var _base64ToPlain = function(str)
 {
   return convert.unbtwoc(convert.base64.decode(str));
 }
 
-function _fromBase64(str)
+var _fromBase64 = function(str)
 {
   return new bigint.BigInteger(convert.hex_from_chars(convert.unbtwoc(convert.base64.decode(str))), 16);
 }
 
-function _xor(a, b)
+var _xor = function(a, b)
 {
   if(a.length != b.length)
   {
@@ -123,7 +123,7 @@ openid.removeAssociation = function(handle)
   return true;
 }
 
-function _buildUrl(theUrl, params)
+var _buildUrl = function(theUrl, params)
 {
   theUrl = url.parse(theUrl, true);
   delete theUrl['search'];
@@ -148,7 +148,7 @@ function _buildUrl(theUrl, params)
   return url.format(theUrl);
 }
 
-function _get(getUrl, params, callback, redirects)
+var _get = function(getUrl, params, callback, redirects)
 {
   redirects = redirects || 5;
   getUrl = url.parse(_buildUrl(getUrl, params));
@@ -193,7 +193,7 @@ function _get(getUrl, params, callback, redirects)
   });
 }
 
-function _post(postUrl, data, callback, redirects)
+var _post = function(postUrl, data, callback, redirects)
 {
   redirects = redirects || 5;
   postUrl = url.parse(postUrl);
@@ -246,13 +246,13 @@ function _post(postUrl, data, callback, redirects)
   }).end(encodedData);
 }
 
-function _encodePostData(data)
+var _encodePostData = function(data)
 {
   var encoded = querystring.stringify(data);
   return encoded;
 }
 
-function _decodePostData(data)
+var _decodePostData = function(data)
 {
   var lines = data.split('\n');
   var result = {};
@@ -271,7 +271,7 @@ function _decodePostData(data)
   return result;
 }
 
-function _normalizeIdentifier(identifier)
+var _normalizeIdentifier = function(identifier)
 {
   identifier = identifier.replace(/^\s+|\s+$/g, '');
   if(!identifier)
@@ -293,7 +293,7 @@ function _normalizeIdentifier(identifier)
   return 'http://' + identifier;
 }
 
-function _parseXrds(xrdsUrl, xrdsData)
+var _parseXrds = function(xrdsUrl, xrdsData)
 {
   var services = xrds.parse(xrdsData);
   if(services == null)
@@ -336,7 +336,7 @@ function _parseXrds(xrdsUrl, xrdsData)
   return providers;
 }
 
-function _matchMetaTag(html)
+var _matchMetaTag = function(html)
 {
   var metaTagMatches = /<meta\s+.*?http-equiv="x-xrds-location"\s+(.*?)>/ig.exec(html);
   if(!metaTagMatches || metaTagMatches.length < 2)
@@ -353,7 +353,7 @@ function _matchMetaTag(html)
   return contentMatches[1];
 }
 
-function _matchLinkTag(html, rel)
+var _matchLinkTag = function(html, rel)
 {
   var providerLinkMatches = new RegExp('<link\\s+.*?rel="[^"]*?' + rel + '[^"]*?".*?>', 'ig').exec(html);
 
@@ -371,7 +371,7 @@ function _matchLinkTag(html, rel)
   return href[1];
 }
 
-function _parseHtml (htmlUrl, html, callback, hops)
+var _parseHtml = function(htmlUrl, html, callback, hops)
 {
   var metaUrl = _matchMetaTag(html);
   if(metaUrl != null)
@@ -410,7 +410,7 @@ function _parseHtml (htmlUrl, html, callback, hops)
   }
 }
 
-function _resolveXri(xriUrl, callback, hops)
+var _resolveXri = function(xriUrl, callback, hops)
 {
   if(!hops)
   {
@@ -460,7 +460,7 @@ function _resolveXri(xriUrl, callback, hops)
   });
 }
 
-function _resolveHtml(identifier, callback, hops, data)
+var _resolveHtml = function(identifier, callback, hops, data)
 {
   if(!hops)
   {
@@ -533,7 +533,7 @@ openid.discover = function(identifier, callback)
   });
 }
 
-function _generateDiffieHellmanParameters(algorithm)
+var _generateDiffieHellmanParameters = function(algorithm)
 {
   var defaultParams = {};
   defaultParams.p = 'ANz5OguIOXLsDhmYmsWizjEOHTdxfo2Vcbt2I3MYZuYe91ouJ4mLBX+YkcLiemOcPym2CBRYHNOyyjmG0mg3BVd9RcLn5S3IHHoXGHblzqdLFEi/368Ygo79JRnxTkXjgmY0rxlJ5bU1zIKaSDuKdiI+XUkKJX8Fvf8W8vsixYOr';
@@ -655,7 +655,7 @@ openid.associate = function(provider, callback, strict, algorithm)
   });
 }
 
-function _generateAssociationRequestParameters(version, algorithm)
+var _generateAssociationRequestParameters = function(version, algorithm)
 {
   var params = {
     'openid.mode' : 'associate',
@@ -753,7 +753,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
   });
 }
 
-function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immediate, extensions, callback)
+var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, immediate, extensions, callback)
 {
   var params = {
     'openid.mode' : immediate ? 'checkid_immediate' : 'checkid_setup'
@@ -855,7 +855,7 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
   }, stateless);
 }
 
-function _getAssertionError(params)
+var _getAssertionError = function(params)
 {
   if(!_isDef(params))
   {
@@ -873,12 +873,12 @@ function _getAssertionError(params)
   return null;
 }
 
-function _checkValidHandle(params)
+var _checkValidHandle = function(params)
 {
   return !_isDef(params['openid.invalidate_handle']);
 }
 
-function _checkSignature(params, callback, stateless)
+var _checkSignature = function(params, callback, stateless)
 {
   if(!_isDef(params['openid.signed']) ||
     !_isDef(params['openid.sig']))
@@ -896,7 +896,7 @@ function _checkSignature(params, callback, stateless)
   }
 }
 
-function _checkSignatureUsingAssociation(params, callback)
+var _checkSignatureUsingAssociation = function(params, callback)
 {
   var association = openid.loadAssociation(params['openid.assoc_handle']);
   if(!association)
@@ -931,7 +931,7 @@ function _checkSignatureUsingAssociation(params, callback)
   }
 }
 
-function _checkSignatureUsingProvider(params, callback)
+var _checkSignatureUsingProvider = function(params, callback)
 {
   var requestParams = 
   {
@@ -972,7 +972,7 @@ function _checkSignatureUsingProvider(params, callback)
  * ================================================================== 
  */
 
-function _getExtensionAlias(params, ns) 
+var _getExtensionAlias = function(params, ns) 
 {
   for (var k in params)
     if (params[k] == ns)
