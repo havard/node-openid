@@ -33,7 +33,7 @@ exports.testVerificationUrl = function(test)
   openid.verifyAssertion('http://fu', function(error, result)
   {
     assert.ok(!times++);
-    assert.ok(!result.authenticated);
+    assert.ok(!result || !result.authenticated);
     test.done();
   });
 }
@@ -47,7 +47,7 @@ exports.testVerificationCancel = function(test)
       function(error, result)
   {
     assert.ok(!times++);
-    assert.ok(!result.authenticated);
+    assert.ok(!result || !result.authenticated);
     test.done();
   });
 }
@@ -63,7 +63,7 @@ exports.testVerificationUrlUsingRelyingParty = function(test)
 
   rp.verifyAssertion('http://fu', function(error, result)
   {
-    assert.ok(!result.authenticated);
+    assert.ok(!result || !result.authenticated);
     test.done();
   });
 }

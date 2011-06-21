@@ -743,9 +743,9 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
 
     var providerIndex = -1;
 
-    var chooseProvider = function successOrNext(authUrl)
+    var chooseProvider = function successOrNext(error, authUrl)
     {
-      if(authUrl)
+      if(!error && authUrl)
       {
         var provider = providers[providerIndex];
         if(provider.claimedIdentifier)
@@ -857,10 +857,10 @@ function _requestAuthentication(provider, assoc_handle, returnUrl, realm, immedi
   }
   else if(!returnUrl)
   {
-    throw new Error("No return URL or realm specified");
+    callback('No return URL or realm specified');
   }
 
-  callback(_buildUrl(provider.endpoint, params));
+  callback(null, _buildUrl(provider.endpoint, params));
 }
 
 openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
@@ -891,8 +891,12 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
     {
       return callback(error, { authenticated: false });
     }
-    _checkSignature(params, function(result)
+    _checkSignature(params, function(error, result)
     {
+      if(error)
+      {
+        return callback(error);
+      }
       if(extensions && result.authenticated)
       {
         for(var ext in extensions)
@@ -974,10 +978,10 @@ function _verifyDiscoveredInformation(params, callback)
         {
           continue;
         }
-        _verifyAssertionAgainstProvider(provider, params, callback);
+        return _verifyAssertionAgainstProvider(provider, params, callback);
       }
 
-      callback('No providers were discovered for the claimed identifier');
+      return callback('No providers were discovered for the claimed identifier');
     });
   });
 }

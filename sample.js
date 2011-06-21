@@ -68,36 +68,48 @@ var server = require('http').createServer(
           var identifier = query.openid_identifier;
 
           // Resolve identifier, associate, and build authentication URL
-          relyingParty.authenticate(identifier, false, function(authUrl)
-              {
-                if (!authUrl)
-                {
-                  res.writeHead(500);
-                  res.end('Authentication failed');
-                }
-                else
-                {
-                  res.writeHead(302, { Location: authUrl });
-                  res.end();
-                }
-              });
+          relyingParty.authenticate(identifier, false, function(error, authUrl)
+          {
+            if(error)
+            {
+              res.writeHead(200);
+              res.end('Authentication failed: ' + error);
+            }
+            else if (!authUrl)
+            {
+              res.writeHead(200);
+              res.end('Authentication failed');
+            }
+            else
+            {
+              res.writeHead(302, { Location: authUrl });
+              res.end();
+            }
+          });
         }
         else if(parsedUrl.pathname == '/verify')
         {
-            // Verify identity assertion
-            // NOTE: Passing just the URL is also possible
-            relyingParty.verifyAssertion(req, function(result)
+          // Verify identity assertion
+          // NOTE: Passing just the URL is also possible
+          relyingParty.verifyAssertion(req, function(error, result)
+          {
+            res.writeHead(200);
+
+            if(error)
+            {
+              res.end('Authentication failed: ' + error);
+            }
+            else
             {
               // Result contains properties:
               // - authenticated (true/false)
-              // - error (message, only if not authenticated)
               // - answers from any extensions (e.g. 
               //   "http://axschema.org/contact/email" if requested 
               //   and present at provider)
-              res.writeHead(200);
               res.end((result.authenticated ? 'Success :)' : 'Failure :(') +
                 '\n\n' + JSON.stringify(result));
-            });
+            }
+          });
         }
         else
         {

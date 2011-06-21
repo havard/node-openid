@@ -48,11 +48,16 @@ using OpenID for node.js for authentication:
               var identifier = query.openid_identifier;
 
               // Resolve identifier, associate, and build authentication URL
-              relyingParty.authenticate(identifier, false, function(authUrl)
+              relyingParty.authenticate(identifier, false, function(error, authUrl)
                   {
-                    if (!authUrl)
+                    if (error)
                     {
-                      res.writeHead(500);
+                      res.writeHead(200);
+                      res.end('Authentication failed: ' + error);
+                    }
+                    else if (!authUrl)
+                    {
+                      res.writeHead(200);
                       res.end('Authentication failed');
                     }
                     else
@@ -66,10 +71,10 @@ using OpenID for node.js for authentication:
             {
                 // Verify identity assertion
                 // NOTE: Passing just the URL is also possible
-                relyingParty.verifyAssertion(req, function(result)
+                relyingParty.verifyAssertion(req, function(error, result)
                 {
                   res.writeHead(200);
-                  res.end(result.authenticated 
+                  res.end(!error && result.authenticated 
                       ? 'Success :)'
                       : 'Failure :(');
                 });
