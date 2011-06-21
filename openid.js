@@ -216,7 +216,7 @@ function _get(getUrl, params, callback, redirects)
     res.on('close', function() { done(); });
   }).on('error', function(error) 
   {
-    callback(error);
+    return callback(error);
   });
 }
 
@@ -269,7 +269,7 @@ function _post(postUrl, data, callback, redirects)
     res.on('close', function() { done(); });
   }).on('error', function(error)
   {
-    callback(error);
+    return callback(error);
   }).end(encodedData);
 }
 
@@ -522,9 +522,9 @@ function _resolveHtml(identifier, callback, hops, data)
 openid.discover = function(identifier, callback)
 {
   identifier = _normalizeIdentifier(identifier);
-  if(!identifier) {
-    callback(null);
-    return;
+  if(!identifier) 
+  {
+    return callback('Invalid identifier', null);
   }
   if(identifier.indexOf('http') !== 0)
   {
@@ -540,7 +540,7 @@ openid.discover = function(identifier, callback)
       // Fallback to HTML discovery
       _resolveHtml(identifier, function(providers)
       {
-        callback(providers);
+        callback(null, providers);
       });
     }
     else
@@ -555,7 +555,7 @@ openid.discover = function(identifier, callback)
           provider.claimedIdentifier = identifier;
         }
       }
-      callback(providers);
+      callback(null, providers);
     }
   });
 }
@@ -606,7 +606,7 @@ openid.associate = function(provider, callback, strict, algorithm)
   {
     if(statusCode != 200 || data == null)
     {
-      return callback({ 
+      return callback(error, { 
         error: 'HTTP request failed', 
         error_code: ''  + statusCode, 
         ns: 'http://specs.openid.net/auth/2.0' 
@@ -621,7 +621,7 @@ openid.associate = function(provider, callback, strict, algorithm)
       {
         if(strict && url.protocol != 'https:')
         {
-          callback({ error: 'Channel is insecure and no encryption method is supported by provider' });
+          callback('Channel is insecure and no encryption method is supported by provider', null);
         }
         else
         {
@@ -632,7 +632,7 @@ openid.associate = function(provider, callback, strict, algorithm)
       {
         if(strict && url.protocol != 'https:')
         {
-          callback({ error: 'Channel is insecure and no encryption method is supported by provider' });
+          callback('Channel is insecure and no encryption method is supported by provider', null);
         }
         else
         {
@@ -645,12 +645,12 @@ openid.associate = function(provider, callback, strict, algorithm)
       }
       else
       {
-        callback(data);
+        callback(null, data);
       }
     }
     else if (data.error)
     {
-      callback(data);
+      callback(data.error, data);
     }
     else
     {
@@ -677,7 +677,7 @@ openid.associate = function(provider, callback, strict, algorithm)
       openid.saveAssociation(hashAlgorithm,
         data.assoc_handle, secret, data.expires_in * 1);
 
-      callback(data);
+      callback(null, data);
     }
   });
 }
@@ -730,11 +730,15 @@ function _generateAssociationRequestParameters(version, algorithm)
 
 openid.authenticate = function(identifier, returnUrl, realm, immediate, stateless, callback, extensions, strict)
 {
-  openid.discover(identifier, function(providers)
+  openid.discover(identifier, function(error, providers)
   {
+    if(error)
+    {
+      return callback(error);
+    }
     if(!providers || providers.length == 0)
     {
-      return callback(null);
+      return callback('No providers found for the given identifier', null);
     }
 
     var providerIndex = -1;
@@ -750,20 +754,20 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
           {
             if(error)
             {
-              return callback(null);
+              return callback(error);
             }
-            return callback(authUrl);
+            return callback(null, authUrl);
           });
         }
         else
         {
-          return callback(authUrl);
+          return callback(null, authUrl);
         }
       }
 
       if(++providerIndex >= providers.length)
       {
-        return callback(null);
+        return callback('No usable providers found for the given identifier', null);
       }
 
       var provider = providers[providerIndex];
@@ -775,9 +779,9 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
 
       else
       {
-        openid.associate(provider, function(answer)
+        openid.associate(provider, function(error, answer)
         {
-          if(!answer || answer.error)
+          if(error || !answer || answer.error)
           {
             successOrNext();
           }
@@ -874,18 +878,18 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
   var assertionError = _getAssertionError(params);
   if(assertionError)
   {
-    return callback({ authenticated: false, error: assertionError });
+    return callback(assertionError, { authenticated: false });
   }
   if(!_checkValidHandle(params))
   {
-    return callback({ authenticated: false, error: 'Association handle has been invalidated' });
+    return callback('Association handle has been invalidated', { authenticated: false });
   }
 
   _verifyDiscoveredInformation(params, function(error)
   {
     if(error)
     {
-      return callback({ authenticated: false, error: error });
+      return callback(error, { authenticated: false });
     }
     _checkSignature(params, function(result)
     {
@@ -893,13 +897,16 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
       {
         for(var ext in extensions)
         {
-          if (!extensions.hasOwnProperty(ext)) { continue; }
+          if (!extensions.hasOwnProperty(ext))
+          { 
+            continue; 
+          }
           var instance = extensions[ext];
           instance.fillResult(params, result);
         }
       }
 
-      callback(result);
+      return callback(null, result);
     }, stateless);
   });
 }
@@ -949,8 +956,12 @@ function _verifyDiscoveredInformation(params, callback)
       return _verifyAssertionAgainstProvider(provider, params, callback);
     }
 
-    openid.discover(claimedIdentifier, function(providers)
+    openid.discover(claimedIdentifier, function(error, providers)
     {
+      if(error)
+      {
+        return callback(error);
+      }
       if(!providers || !providers.length)
       {
         return callback('No OpenID provider was discovered for the asserted claimed identifier');
@@ -994,7 +1005,7 @@ function _checkSignature(params, callback, stateless)
   if(!_isDef(params['openid.signed']) ||
     !_isDef(params['openid.sig']))
   {
-    return callback({ authenticated: false, error: 'No signature in response' });
+    return callback('No signature in response', { authenticated: false });
   }
 
   if(stateless)
@@ -1012,7 +1023,7 @@ function _checkSignatureUsingAssociation(params, callback)
   var association = openid.loadAssociation(params['openid.assoc_handle']);
   if(!association)
   {
-    return callback({ authenticated: false, error: 'Invalid association handle'});
+    return callback('Invalid association handle', { authenticated: false });
   }
 
   var message = '';
@@ -1023,7 +1034,7 @@ function _checkSignatureUsingAssociation(params, callback)
     var value = params['openid.' + param];
     if(!_isDef(value))
     {
-      return callback({ authenticated: false, error: 'At least one parameter referred in signature is not present in response'});
+      return callback('At least one parameter referred in signature is not present in response', { authenticated: false });
     }
     message += param + ':' + value + '\n';
   }
@@ -1034,11 +1045,11 @@ function _checkSignatureUsingAssociation(params, callback)
 
   if(ourSignature == params['openid.sig'])
   {
-    callback({ authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
+    callback(null, { authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
   }
   else
   {
-    callback({ authenticated: false, error: 'Invalid signature' });
+    callback('Invalid signature', { authenticated: false });
   }
 }
 
@@ -1060,7 +1071,7 @@ function _checkSignatureUsingProvider(params, callback)
   {
     if(statusCode != 200 || data == null)
     {
-      callback({ authenticated: false, error: 'Invalid assertion check from provider'});
+      return callback('Invalid assertion response from provider', { authenticated: false });
     }
     else
     {
@@ -1068,11 +1079,11 @@ function _checkSignatureUsingProvider(params, callback)
 
       if(data['is_valid'] == 'true')
       {
-        callback({ authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
+        return callback(null, { authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
       }
       else
       {
-        callback({ authenticated: false, error: 'Invalid signature' });
+        return callback('Invalid signature', { authenticated: false });
       }
     }
   });
@@ -1270,7 +1281,7 @@ openid.OAuthHybrid = function(options)
 openid.OAuthHybrid.prototype.fillResult = function(params, result)
 {
   var extension = _getExtensionAlias(params, 'http://specs.openid.net/extensions/oauth/1.0') || 'oauth'
-    , token_attr = 'openid.'+extension+'.request_token';
+    , token_attr = 'openid.' + extension + '.request_token';
   
   
   if(params[token_attr] !== undefined)

@@ -30,10 +30,10 @@ var openid = require('openid');
 exports.testResolveFailed = function(test)
 {
   openid.authenticate('example.com', 'http://example.com/verify', null, false, false,
-    function(url, provider)
+    function(error, url)
     {
+      assert.ok(error);
       assert.equal(null, url);
-      assert.equal(null, provider);
       test.done();
     });
 }
@@ -41,9 +41,10 @@ exports.testResolveFailed = function(test)
 exports.testEmptyUrl = function(test)
 {
   openid.discover('',
-    function(data)
+    function(error, providers)
     {
-      assert.equal(null, data);
+      assert.ok(error);
+      assert.equal(null, providers);
       test.done();
     });
 }
@@ -51,9 +52,10 @@ exports.testEmptyUrl = function(test)
 exports.testResolveRyanXri = function(test)
 {
   openid.discover('=ryan',
-    function(data)
+    function(error, providers)
     {
-      assert.equal(2, data.length);
+      assert.ok(!error);
+      assert.equal(2, providers.length);
       test.done();
     });
 }
@@ -61,9 +63,10 @@ exports.testResolveRyanXri = function(test)
 exports.testResolveRedirect = function(test)
 {
   openid.discover('http://www.myopenid.com/xrds?username=swatinem.myopenid.com',
-    function(data)
+    function(error, providers)
     {
-      assert.equal(3, data.length);
+      assert.ok(!error);
+      assert.equal(3, providers.length);
       test.done();
     });
 }
@@ -71,9 +74,10 @@ exports.testResolveRedirect = function(test)
 exports.testResolveGoogle = function(test)
 {
   openid.discover('http://www.google.com/accounts/o8/id',
-    function(data)
+    function(error, providers)
     {
-      assert.equal(1, data.length);
+      assert.ok(!error);
+      assert.equal(1, providers.length);
       test.done();
     });
 }
@@ -81,9 +85,10 @@ exports.testResolveGoogle = function(test)
 exports.testResolveLiveJournalUser = function(test)
 {
   openid.discover('http://omnifarious.livejournal.com/',
-    function(data)
+    function(error, providers)
     {
-      assert.equal(1, data.length);
+      assert.ok(!error);
+      assert.equal(1, providers.length);
       test.done();
     });
 }
@@ -91,9 +96,10 @@ exports.testResolveLiveJournalUser = function(test)
 exports.testResolveOpenID11 = function(test)
 {
   openid.discover('http://buzz.blogger.com/',
-    function(data)
+    function(error, providers)
     {
-      assert.equal(1, data.length);
+      assert.ok(!error);
+      assert.equal(1, providers.length);
       test.done();
     });
 }
@@ -101,12 +107,13 @@ exports.testResolveOpenID11 = function(test)
 function associateTest(url, test)
 {
   openid.discover(url,
-    function(providers)
+    function(error, providers)
     {
       var provider = providers[0];
-      openid.associate(provider, function(data)
+      openid.associate(provider, function(error, result)
       {
-        assert.ok(data.expires_in);
+        assert.ok(!error);
+        assert.ok(result.expires_in);
         test.done();
       });
     }
@@ -131,8 +138,9 @@ exports.testAssociateWithOpenID11 = function(test)
 exports.testImmediateAuthenticationWithGoogle = function(test)
 {
   openid.authenticate('http://www.google.com/accounts/o8/id', 
-  'http://example.com/verify', null, true, false, function(url)
+  'http://example.com/verify', null, true, false, function(error, url)
   {
+    assert.ok(!error, error);
     assert.ok(url.indexOf('checkid_immediate') !== -1);
     test.done();
   });
@@ -142,8 +150,9 @@ exports.testImmediateAuthenticationWithGoogleAppsForDomains = function(test)
 {
   // domain must be a valid google apps domain with openid enabled.
   openid.authenticate('https://www.google.com/accounts/o8/site-xrds?hd=opower.com',
-  'http://example.com/verify', null, true, false, function(url)
+  'http://example.com/verify', null, true, false, function(error, url)
   {
+    assert.ok(!error, error);
     assert.ok(url.indexOf('checkid_immediate') !== -1);
     test.done();
   });
@@ -153,8 +162,9 @@ exports.testImmediateAuthenticationWithGoogleAppsForDomains = function(test)
 exports.testSetupAuthenticationWithGoogle = function(test)
 {
   openid.authenticate('http://www.google.com/accounts/o8/id', 
-  'http://example.com/verify', null, false, false, function(url)
+  'http://example.com/verify', null, false, false, function(error, url)
   {
+    assert.ok(!error);
     assert.ok(url.indexOf('checkid_setup') !== -1);
     test.done();
   });
@@ -168,8 +178,9 @@ exports.testAuthenticationWithGoogleUsingRelyingPartyObject = function(test)
       false,
       false,
       null);
-  rp.authenticate('http://www.google.com/accounts/o8/id', false, function(url)
+  rp.authenticate('http://www.google.com/accounts/o8/id', false, function(error, url)
   {
+    assert.ok(!error);
     assert.ok(url.indexOf('checkid_setup') !== -1);
     test.done();
   });
