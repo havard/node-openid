@@ -30,10 +30,10 @@ var openid = require('openid');
 exports.testVerificationUrl = function(test)
 {
   var times = 0;
-  openid.verifyAssertion('http://fu', function(result)
+  openid.verifyAssertion('http://fu', function(error, result)
   {
     assert.ok(!times++);
-    assert.ok(!result.authenticated);
+    assert.ok(!result || !result.authenticated);
     test.done();
   });
 }
@@ -44,10 +44,10 @@ exports.testVerificationCancel = function(test)
   openid.verifyAssertion(
       'http://host/?openid.mode=cancel' +
       '&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0',
-      function(result)
+      function(error, result)
   {
     assert.ok(!times++);
-    assert.ok(!result.authenticated);
+    assert.ok(!result || !result.authenticated);
     test.done();
   });
 }
@@ -61,9 +61,9 @@ exports.testVerificationUrlUsingRelyingParty = function(test)
       false,
       null);
 
-  rp.verifyAssertion('http://fu', function(result)
+  rp.verifyAssertion('http://fu', function(error, result)
   {
-    assert.ok(!result.authenticated);
+    assert.ok(!result || !result.authenticated);
     test.done();
   });
 }

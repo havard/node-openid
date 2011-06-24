@@ -48,12 +48,17 @@ using OpenID for node.js for authentication:
               var identifier = query.openid_identifier;
 
               // Resolve identifier, associate, and build authentication URL
-              relyingParty.authenticate(identifier, false, function(authUrl)
+              relyingParty.authenticate(identifier, false, function(error, authUrl)
                   {
-                    if (!authUrl)
+                    if (error)
                     {
-                      res.writeHead(500);
-                      res.end(error);
+                      res.writeHead(200);
+                      res.end('Authentication failed: ' + error);
+                    }
+                    else if (!authUrl)
+                    {
+                      res.writeHead(200);
+                      res.end('Authentication failed');
                     }
                     else
                     {
@@ -66,10 +71,10 @@ using OpenID for node.js for authentication:
             {
                 // Verify identity assertion
                 // NOTE: Passing just the URL is also possible
-                relyingParty.verifyAssertion(req, function(result)
+                relyingParty.verifyAssertion(req, function(error, result)
                 {
                   res.writeHead(200);
-                  res.end(result.authenticated 
+                  res.end(!error && result.authenticated 
                       ? 'Success :)'
                       : 'Failure :(');
                 });
@@ -88,7 +93,7 @@ using OpenID for node.js for authentication:
         });
     server.listen(80);
 
-A more elaborate example can be found in `sample.js` in the GitHub repository.
+A more elaborate example including utilizing extensions can be found in `sample.js` in the GitHub repository.
 
 ## Storing association state
 
@@ -100,7 +105,20 @@ the `openid` module:
 
 The `openid` module includes default implementations for these functions using a simple object to store the associations in-memory.
 
+## Caching discovered information
 
+The verification of a positive assertion (i.e. an authenticated user) can be sped up significantly by avoiding the need for additional provider discoveries when possible. In order to achieve, this speed-up, node-openid needs to cache its discovered providers. You can mix-in two functions to override the default cache, which is an in-memory cache utilizing a simple object store:
+  
+  - `saveDiscoveredInformation(provider, callback)` is used when saving a discovered provider. The `provider.claimedIdentifier` attribute is the key for this object, and will be used for lookup later, when attempting to reuse this discovered information through `loadDiscoveredInformation`. The following behavior is required:
+    
+    - When saving fails for some reason, `callback(error)` is called with `error` being an error string specifying what failed.
+    - When saving succeeds, `callback(null)` is called.
+
+  - `loadDiscoveredInformation(claimedIdentifier, callback)` is used to load any previously discovered information about the provider for a claimed identifier. The following behavior is required:
+      
+      - When no provider is found for the claimed identifier, `callback(null, null)` is called (i.e. it is not an error to not have any data to return).
+      - When loading fails for some reason, `callback(error, null)` is called with `error` being an error string specifying why loading failed.
+      - When loading succeeds, `callback(null, provider)` is called with the exact provider object that was previously stored using `saveDiscoveredInformation`.
 
 ## License
 
