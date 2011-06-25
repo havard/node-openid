@@ -100,12 +100,12 @@ var _xor = function(a, b)
   return r;
 }
 
-openid.saveAssociation = function(type, handle, secret, expiry_time)
+openid.saveAssociation = function(endpoint, type, handle, secret, expiry_time)
 {
   setTimeout(function() {
     openid.removeAssociation(handle);
   }, expiry_time);
-  _associations[handle] = {type : type, secret: secret};
+  _associations[handle] = {endpoint: endpoint, type : type, secret: secret};
 }
 
 openid.loadAssociation = function(handle)
@@ -674,7 +674,7 @@ openid.associate = function(provider, callback, strict, algorithm)
         secret = convert.base64.encode(_xor(encMacKey, sharedSecret));
       }
 
-      openid.saveAssociation(hashAlgorithm,
+      openid.saveAssociation(provider.endpoint, hashAlgorithm,
         data.assoc_handle, secret, data.expires_in * 1);
 
       callback(null, data);
@@ -1028,6 +1028,10 @@ var _checkSignatureUsingAssociation = function(params, callback)
   if(!association)
   {
     return callback('Invalid association handle', { authenticated: false });
+  }
+  if(association.endpoint !== params['openid.op_endpoint'])
+  {
+      return callback('Association handle does not match provided endpoint', {authenticated: false});
   }
 
   var message = '';
