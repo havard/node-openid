@@ -23,10 +23,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
 
-require.paths.unshift(__dirname + '/../lib/');
-
 var assert = require('assert');
-var xrds = require('xrds');
+var xrds = require('../lib/xrds');
 
 exports.testXrdsSampleParse = function(test)
 {

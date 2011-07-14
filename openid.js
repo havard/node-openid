@@ -26,17 +26,14 @@
  * vim: set sw=2 ts=2 et tw=80 : 
  */
 
-require.paths.unshift(__dirname + '/lib');
-require.paths.unshift(__dirname);
-
-var bigint = require('bigint'),
-    convert = require('convert'),
+var bigint = require('./lib/bigint'),
+    convert = require('./lib/convert'),
     crypto = require('crypto'),
     http = require('http'),
     https = require('https'),
     querystring = require('querystring'),
     url = require('url'),
-    xrds = require('xrds');
+    xrds = require('./lib/xrds');
 
 var _associations = {};
 var _discoveries = {};
