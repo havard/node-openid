@@ -23,9 +23,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
 
-require.paths.unshift(__dirname);
-
-var openid = require('openid');
+var openid = require('./openid');
 var url = require('url');
 var querystring = require('querystring');
 
