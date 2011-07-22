@@ -97,12 +97,12 @@ var _xor = function(a, b)
   return r;
 }
 
-openid.saveAssociation = function(endpoint, type, handle, secret, expiry_time, callback)
+openid.saveAssociation = function(provider, type, handle, secret, expiry_time, callback)
 {
   setTimeout(function() {
     openid.removeAssociation(handle);
   }, expiry_time);
-  _associations[handle] = {endpoint: endpoint, type : type, secret: secret};
+  _associations[handle] = {provider: provider, type : type, secret: secret};
   callback();
 }
 
@@ -621,34 +621,43 @@ openid.associate = function(provider, callback, strict, algorithm)
       {
         if(strict && url.protocol != 'https:')
         {
-          callback('Channel is insecure and no encryption method is supported by provider', null);
+          return callback('Channel is insecure and no encryption method is supported by provider', null);
         }
         else
         {
-          openid.associate(provider, callback, strict, 'no-encryption-256');
+          return openid.associate(provider, callback, strict, 'no-encryption-256');
         }
       }
       else if(algorithm == 'no-encryption-256')
       {
         if(strict && url.protocol != 'https:')
         {
-          callback('Channel is insecure and no encryption method is supported by provider', null);
+          return callback('Channel is insecure and no encryption method is supported by provider', null);
         }
+        /*else if(provider.version.indexOf('2.0') === -1)
+        {
+          // 2011-07-22: This is an OpenID 1.1 provider which means
+          // HMAC-SHA1 has already been attempted with a blank session
+          // type as per the OpenID 1.1 specification.
+          // (See http://openid.net/specs/openid-authentication-1_1.html#mode_associate)
+          // However, providers like wordpress.com don't follow the 
+          // standard and reject these requests, but accept OpenID 2.0
+          // style requests without a session type, so we have to give
+          // those a shot as well.
+          callback('Provider is OpenID 1.1 and does not support OpenID 1.1 association.');
+        }*/
         else
         {
-          openid.associate(provider, callback, strict, 'no-encryption');
+          return openid.associate(provider, callback, strict, 'no-encryption');
         }
       }
       else if(algorithm == 'DH-SHA256')
       {
-        openid.associate(provider, callback, strict, 'DH-SHA1');
-      }
-      else
-      {
-        callback(null, data);
+        return openid.associate(provider, callback, strict, 'DH-SHA1');
       }
     }
-    else if (data.error)
+
+    if (data.error)
     {
       callback(data.error, data);
     }
@@ -674,7 +683,7 @@ openid.associate = function(provider, callback, strict, algorithm)
         secret = convert.base64.encode(_xor(encMacKey, sharedSecret));
       }
 
-      openid.saveAssociation(provider.endpoint, hashAlgorithm,
+      openid.saveAssociation(provider, hashAlgorithm,
         data.assoc_handle, secret, data.expires_in * 1, function()
         {
           callback(null, data);
@@ -1035,9 +1044,9 @@ var _checkSignatureUsingAssociation = function(params, callback)
     {
       return callback('Invalid association handle', { authenticated: false });
     }
-    if(association.endpoint !== params['openid.op_endpoint'])
+    if(association.provider.version.indexOf('2.0') !== -1 && association.provider.endpoint !== params['openid.op_endpoint'])
     {
-        return callback('Association handle does not match provided endpoint', {authenticated: false});
+      return callback('Association handle does not match provided endpoint', {authenticated: false});
     }
     
     var message = '';
