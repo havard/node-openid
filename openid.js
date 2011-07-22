@@ -764,7 +764,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
         var provider = providers[providerIndex];
         if(provider.claimedIdentifier)
         {
-          openid.saveDiscoveredInformation(provider, function(error)
+          return openid.saveDiscoveredInformation(provider, function(error)
           {
             if(error)
             {
@@ -778,7 +778,6 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
           return callback(null, authUrl);
         }
       }
-
       if(++providerIndex >= providers.length)
       {
         return callback('No usable providers found for the given identifier', null);
