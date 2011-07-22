@@ -26,17 +26,14 @@
  * vim: set sw=2 ts=2 et tw=80 : 
  */
 
-require.paths.unshift(__dirname + '/lib');
-require.paths.unshift(__dirname);
-
-var bigint = require('bigint'),
-    convert = require('convert'),
+var bigint = require('./lib/bigint'),
+    convert = require('./lib/convert'),
     crypto = require('crypto'),
     http = require('http'),
     https = require('https'),
     querystring = require('querystring'),
     url = require('url'),
-    xrds = require('xrds');
+    xrds = require('./lib/xrds');
 
 var _associations = {};
 var _discoveries = {};
@@ -106,16 +103,19 @@ openid.saveAssociation = function(endpoint, type, handle, secret, expiry_time)
     openid.removeAssociation(handle);
   }, expiry_time);
   _associations[handle] = {endpoint: endpoint, type : type, secret: secret};
+  callback();
 }
 
-openid.loadAssociation = function(handle)
+openid.loadAssociation = function(handle, callback)
 {
   if(_isDef(_associations[handle]))
   {
-    return _associations[handle];
+    callback(null, _associations[handle]);
   }
-
-  return null;
+  else
+  {
+    callback(null, null);
+  }
 }
 
 openid.removeAssociation = function(handle)
@@ -675,9 +675,10 @@ openid.associate = function(provider, callback, strict, algorithm)
       }
 
       openid.saveAssociation(provider.endpoint, hashAlgorithm,
-        data.assoc_handle, secret, data.expires_in * 1);
-
-      callback(null, data);
+        data.assoc_handle, secret, data.expires_in * 1, function()
+        {
+          callback(null, data);
+        });
     }
   });
 }
@@ -1024,41 +1025,47 @@ var _checkSignature = function(params, callback, stateless)
 
 var _checkSignatureUsingAssociation = function(params, callback)
 {
-  var association = openid.loadAssociation(params['openid.assoc_handle']);
-  if(!association)
+  openid.loadAssociation(params['openid.assoc_handle'], function(error, association)
   {
-    return callback('Invalid association handle', { authenticated: false });
-  }
-  if(association.endpoint !== params['openid.op_endpoint'])
-  {
-      return callback('Association handle does not match provided endpoint', {authenticated: false});
-  }
-
-  var message = '';
-  var signedParams = params['openid.signed'].split(',');
-  for(var i = 0; i < signedParams.length; i++)
-  {
-    var param = signedParams[i];
-    var value = params['openid.' + param];
-    if(!_isDef(value))
+    if(error)
     {
-      return callback('At least one parameter referred in signature is not present in response', { authenticated: false });
+      return callback('Error loading association', { authenticated: false });
     }
-    message += param + ':' + value + '\n';
-  }
+    if(!association)
+    {
+      return callback('Invalid association handle', { authenticated: false });
+    }
+    if(association.endpoint !== params['openid.op_endpoint'])
+    {
+        return callback('Association handle does not match provided endpoint', {authenticated: false});
+    }
+    
+    var message = '';
+    var signedParams = params['openid.signed'].split(',');
+    for(var i = 0; i < signedParams.length; i++)
+    {
+      var param = signedParams[i];
+      var value = params['openid.' + param];
+      if(!_isDef(value))
+      {
+        return callback('At least one parameter referred in signature is not present in response', { authenticated: false });
+      }
+      message += param + ':' + value + '\n';
+    }
 
-  var hmac = crypto.createHmac(association.type, _base64ToPlain(association.secret));
-  hmac.update(message);
-  var ourSignature = hmac.digest('base64');
+    var hmac = crypto.createHmac(association.type, _base64ToPlain(association.secret));
+    hmac.update(message);
+    var ourSignature = hmac.digest('base64');
 
-  if(ourSignature == params['openid.sig'])
-  {
-    callback(null, { authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
-  }
-  else
-  {
-    callback('Invalid signature', { authenticated: false });
-  }
+    if(ourSignature == params['openid.sig'])
+    {
+      callback(null, { authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
+    }
+    else
+    {
+      callback('Invalid signature', { authenticated: false });
+    }
+  });
 }
 
 var _checkSignatureUsingProvider = function(params, callback)
