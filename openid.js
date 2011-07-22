@@ -97,7 +97,7 @@ var _xor = function(a, b)
   return r;
 }
 
-openid.saveAssociation = function(endpoint, type, handle, secret, expiry_time)
+openid.saveAssociation = function(endpoint, type, handle, secret, expiry_time, callback)
 {
   setTimeout(function() {
     openid.removeAssociation(handle);
