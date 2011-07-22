@@ -103,7 +103,7 @@ openid.saveAssociation = function(provider, type, handle, secret, expiry_time, c
     openid.removeAssociation(handle);
   }, expiry_time);
   _associations[handle] = {provider: provider, type : type, secret: secret};
-  callback();
+  callback(null); // Custom implementations may report error as first argument
 }
 
 openid.loadAssociation = function(handle, callback)
@@ -684,8 +684,12 @@ openid.associate = function(provider, callback, strict, algorithm)
       }
 
       openid.saveAssociation(provider, hashAlgorithm,
-        data.assoc_handle, secret, data.expires_in * 1, function()
+        data.assoc_handle, secret, data.expires_in * 1, function(error)
         {
+          if(error)
+          {
+            return callback(error);
+          }
           callback(null, data);
         });
     }
