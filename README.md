@@ -100,8 +100,8 @@ A more elaborate example including utilizing extensions can be found in `sample.
 To provide a way to save/load association state, you need to mix-in two functions in
 the `openid` module:
 
- - `saveAssociation(type, handle, secret, expiry_time)` is called when a new association is established during authentication
- - `loadAssociation(handle)` is used to retrieve the association identified by `handle` when verification happens
+ - `saveAssociation(provider, type, handle, secret, expiry_time, callback)` is called when a new association is established during authentication. The callback should be called with any error as its first argument (or `null` if no error occured).
+ - `loadAssociation(handle, callback)` is used to retrieve the association identified by `handle` when verification happens. The callback should be called with any error as its first argument (and `null` as the second argument), or an object with the keys `provider`, `type`, `secret` if the association was loaded successfully.
 
 The `openid` module includes default implementations for these functions using a simple object to store the associations in-memory.
 
