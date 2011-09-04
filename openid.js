@@ -604,9 +604,11 @@ openid.associate = function(provider, callback, strict, algorithm)
 
   _post(provider.endpoint, params, function(data, headers, statusCode)
   {
-    if(statusCode != 200 || data == null)
+    if ((statusCode != 200 && statusCode != 400) || data === null)
     {
-      return callback(error, { 
+      return callback({ 
+        message: 'HTTP request failed' 
+      }, { 
         error: 'HTTP request failed', 
         error_code: ''  + statusCode, 
         ns: 'http://specs.openid.net/auth/2.0' 
