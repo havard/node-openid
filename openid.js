@@ -614,7 +614,7 @@ openid.associate = function(provider, callback, strict, algorithm)
         ns: 'http://specs.openid.net/auth/2.0' 
       });
     }
-
+    
     data = _decodePostData(data);
 
     if(data.error_code == 'unsupported-type' || !_isDef(data.ns))
@@ -884,12 +884,39 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
   var assertionUrl = requestOrUrl;
   if(typeof(requestOrUrl) !== typeof(''))
   {
+    if(requestOrUrl.method == 'POST') {
+      if(requestOrUrl.headers['content-type'] == 'application/x-www-form-urlencoded') {
+        // POST response received
+        var data = '';
+        
+        requestOrUrl.on('data', function(chunk) {
+          data += chunk;
+        });
+        
+        requestOrUrl.on('end', function() {
+          var params = querystring.parse(data);
+          return _verifyAssertionData(params, callback, stateless, extensions);
+        });
+      }
+      else {
+        return callback({ message: 'Invalid POST response from OpenID provider' });
+      }
+      
+      return; // Avoid falling through to GET method assertion
+    }
+    else if(requestOrUrl.method != 'GET') {
+      return callback({ message: 'Invalid request method from OpenID provider' });
+    }
     assertionUrl = requestOrUrl.url;
   }
 
   assertionUrl = url.parse(assertionUrl, true);
   var params = assertionUrl.query;
 
+  return _verifyAssertionData(params, callback, stateless, extensions);
+}
+
+var _verifyAssertionData = function(params, callback, stateless, extensions) {
   var assertionError = _getAssertionError(params);
   if(assertionError)
   {
@@ -928,7 +955,7 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
       return callback(null, result);
     }, stateless);
   });
-}
+};
 
 var _getAssertionError = function(params)
 {
