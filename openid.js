@@ -124,24 +124,32 @@ openid.removeAssociation = function(handle)
   return true;
 }
 
-openid.saveDiscoveredInformation = function(provider, callback)
+openid.saveDiscoveredInformation = function(provider, useLocalIdentifierAsKey, callback)
 {
-  if(!provider.claimedIdentifier)
+  if((!useLocalIdentifierAsKey && !provider.claimedIdentifier) || (useLocalIdentifierAsKey && !provider.localIdentifier))
   {
-    return callback('The provider did not contain a claimed identifier');
+    return callback({ message: 'The provider does not contain the expected key identifier' });
   }
-  _discoveries[provider.claimedIdentifier] = provider;
+  
+  if (useLocalIdentifierAsKey) 
+  {
+    _discoveries[provider.localIdentifier] = provider;
+  }
+  else
+  {
+    _discoveries[provider.claimedIdentifier] = provider; 
+  }
   return callback(null);
 }
 
-openid.loadDiscoveredInformation = function(claimedIdentifier, callback)
+openid.loadDiscoveredInformation = function(identifier, callback)
 {
-  if(!_isDef(_discoveries[claimedIdentifier]))
+  if(!_isDef(_discoveries[identifier]))
   {
     return callback(null, null);
   }
-  
-  return callback(null, _discoveries[claimedIdentifier]);
+
+  return callback(null, _discoveries[identifier]);
 }
 
 var _buildUrl = function(theUrl, params)
@@ -352,6 +360,7 @@ var _parseXrds = function(xrdsUrl, xrdsData)
       service.type == 'http://openid.net/signon/1.1')
     {
       provider.version = service.type;
+      provider.localIdentifier = service.delegate;
     }
     else
     {
@@ -524,7 +533,7 @@ openid.discover = function(identifier, callback)
   identifier = _normalizeIdentifier(identifier);
   if(!identifier) 
   {
-    return callback('Invalid identifier', null);
+    return callback({ message: 'Invalid identifier' }, null);
   }
   if(identifier.indexOf('http') !== 0)
   {
@@ -623,7 +632,7 @@ openid.associate = function(provider, callback, strict, algorithm)
       {
         if(strict && url.protocol != 'https:')
         {
-          return callback('Channel is insecure and no encryption method is supported by provider', null);
+          return callback({ message: 'Channel is insecure and no encryption method is supported by provider' }, null);
         }
         else
         {
@@ -646,7 +655,7 @@ openid.associate = function(provider, callback, strict, algorithm)
           // standard and reject these requests, but accept OpenID 2.0
           // style requests without a session type, so we have to give
           // those a shot as well.
-          callback('Provider is OpenID 1.1 and does not support OpenID 1.1 association.');
+          callback({ message: 'Provider is OpenID 1.1 and does not support OpenID 1.1 association.' });
         }*/
         else
         {
@@ -661,7 +670,7 @@ openid.associate = function(provider, callback, strict, algorithm)
 
     if (data.error)
     {
-      callback(data.error, data);
+      callback({ message: data.error }, data);
     }
     else
     {
@@ -752,9 +761,9 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
     {
       return callback(error);
     }
-    if(!providers || providers.length == 0)
+    if(!providers || providers.length === 0)
     {
-      return callback('No providers found for the given identifier', null);
+      return callback({ message: 'No providers found for the given identifier' }, null);
     }
 
     var providerIndex = -1;
@@ -766,7 +775,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
         var provider = providers[providerIndex];
         if(provider.claimedIdentifier)
         {
-          return openid.saveDiscoveredInformation(provider, function(error)
+          return openid.saveDiscoveredInformation(provider, provider.version.indexOf('2.0') === -1, function(error)
           {
             if(error)
             {
@@ -775,34 +784,37 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
             return callback(null, authUrl);
           });
         }
-        else
+        else if(provider.version.indexOf('2.0') !== -1)
         {
           return callback(null, authUrl);
+        }
+        else {
+          successOrNext({ message: 'OpenID 1.1 provider cannot be used without a claimed identifier' });
         }
       }
       if(++providerIndex >= providers.length)
       {
-        return callback('No usable providers found for the given identifier', null);
+        return callback({ message: 'No usable providers found for the given identifier' }, null);
       }
 
-      var provider = providers[providerIndex];
+      var currentProvider = providers[providerIndex];
       if(stateless)
       {
-        _requestAuthentication(provider, null, returnUrl, 
+        _requestAuthentication(currentProvider, null, returnUrl, 
           realm, immediate, extensions || {}, successOrNext);
       }
 
       else
       {
-        openid.associate(provider, function(error, answer)
+        openid.associate(currentProvider, function(error, answer)
         {
           if(error || !answer || answer.error)
           {
-            successOrNext();
+            successOrNext(error || answer.error, null);
           }
           else
           {
-            _requestAuthentication(provider, answer.assoc_handle, returnUrl, 
+            _requestAuthentication(currentProvider, answer.assoc_handle, returnUrl, 
               realm, immediate, extensions || {}, successOrNext);
           }
         });
@@ -848,10 +860,13 @@ var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, 
       params['openid.identity'] = provider.claimedIdentifier;
     }
   }
-  else
+  else if(provider.version.indexOf('2.0') !== -1)
   {
     params['openid.claimed_id'] = params['openid.identity'] =
       'http://specs.openid.net/auth/2.0/identifier_select';
+  }
+  else {
+    return callback({ message: 'OpenID 1.1 provider cannot be used without a claimed identifier' });
   }
 
   if(assoc_handle)
@@ -868,11 +883,16 @@ var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, 
 
   if(realm)
   {
-    params['openid.realm'] = realm;
+    if(provider.version.indexOf('2.0') !== -1) {
+      params['openid.realm'] = realm;
+    }
+    else {
+      params['openid.trust_root'] = realm;
+    }
   }
   else if(!returnUrl)
   {
-    callback('No return URL or realm specified');
+    return callback({ message: 'No return URL or realm specified' });
   }
 
   callback(null, _buildUrl(provider.endpoint, params));
@@ -920,40 +940,18 @@ var _verifyAssertionData = function(params, callback, stateless, extensions) {
   var assertionError = _getAssertionError(params);
   if(assertionError)
   {
-    return callback(assertionError, { authenticated: false });
+    return callback({ message: assertionError }, { authenticated: false });
   }
   if(!_checkValidHandle(params))
   {
-    return callback('Association handle has been invalidated', { authenticated: false });
+    return callback({ message: 'Association handle has been invalidated' }, { authenticated: false });
   }
 
-  _verifyDiscoveredInformation(params, function(error)
+  // TODO: Check nonce if OpenID 2.0
+  
+  _verifyDiscoveredInformation(params, function(error, result)
   {
-    if(error)
-    {
-      return callback(error, { authenticated: false });
-    }
-    _checkSignature(params, function(error, result)
-    {
-      if(error)
-      {
-        return callback(error);
-      }
-      if(extensions && result.authenticated)
-      {
-        for(var ext in extensions)
-        {
-          if (!extensions.hasOwnProperty(ext))
-          { 
-            continue; 
-          }
-          var instance = extensions[ext];
-          instance.fillResult(params, result);
-        }
-      }
-
-      return callback(null, result);
-    }, stateless);
+    return callback(error, result);
   });
 };
 
@@ -983,25 +981,42 @@ var _checkValidHandle = function(params)
 var _verifyDiscoveredInformation = function(params, callback)
 {
   var claimedIdentifier = params['openid.claimed_id'];
+  var useLocalIdentifierAsKey = false;
   if(!_isDef(claimedIdentifier))
   {
-    // If there is no claimed identifier, then the
-    // assertion is not about an identity
-    return callback(null); 
+    if(!_isDef(params['openid.ns']))
+    {
+      // OpenID 1.0/1.1 response without a claimed identifier
+      // We need to load discovered information using the
+      // local identifier
+      useLocalIdentifierAsKey = true;
+    }
+    else {
+      // OpenID 2.0+:
+      // If there is no claimed identifier, then the
+      // assertion is not about an identity
+      return callback(null, { authenticated: false }); 
+      }
   }
 
+  if (useLocalIdentifierAsKey) {
+    claimedIdentifier = params['openid.identity'];  
+  }
   openid.loadDiscoveredInformation(claimedIdentifier, function(error, provider)
   {
     if(error)
     {
-      return callback('An error occured when loading previously discovered information about the claimed identifier');
+      return callback({ message: 'An error occured when loading previously discovered information about the claimed identifier' });
     }
 
     if(provider)
     {
       return _verifyAssertionAgainstProvider(provider, params, callback);
     }
-
+    else if (useLocalIdentifierAsKey) {
+      return callback({ message: 'OpenID 1.0/1.1 response received, but no information has been discovered about the provider. It is likely that this is a fraudulent authentication response.' });
+    }
+    
     openid.discover(claimedIdentifier, function(error, providers)
     {
       if(error)
@@ -1010,7 +1025,7 @@ var _verifyDiscoveredInformation = function(params, callback)
       }
       if(!providers || !providers.length)
       {
-        return callback('No OpenID provider was discovered for the asserted claimed identifier');
+        return callback({ message: 'No OpenID provider was discovered for the asserted claimed identifier' });
       }
 
       for(var i = 0; i < providers.length; ++i)
@@ -1023,40 +1038,60 @@ var _verifyDiscoveredInformation = function(params, callback)
         return _verifyAssertionAgainstProvider(provider, params, callback);
       }
 
-      return callback('No providers were discovered for the claimed identifier');
+      return callback({ message: 'No providers were discovered for the claimed identifier' });
     });
   });
 }
 
 var _verifyAssertionAgainstProvider = function(provider, params, callback)
 {
-  if(provider.endpoint != params['openid.op_endpoint'])
+  if(provider.version.indexOf('2.0') !== -1 && provider.endpoint != params['openid.op_endpoint'])
   {
-    return callback('OpenID provider endpoint in assertion response does not match discovered OpenID provider endpoint');
+    return callback({ message: 'OpenID provider endpoint in assertion response does not match discovered OpenID provider endpoint' });
   }
   if(provider.claimedIdentifier && provider.claimedIdentifier != params['openid.claimed_id'])
   {
-    return callback('Claimed identifier in assertion response does not match discovered claimed identifier');
+    return callback({ message: 'Claimed identifier in assertion response does not match discovered claimed identifier' });
   }
   if(provider.localIdentifier && provider.localIdentifier != params['openid.identity'])
   {
-    return callback('Identity in assertion response does not match discovered local identifier');
+    return callback({ message: 'Identity in assertion response does not match discovered local identifier' });
   }
 
-  return callback(null);
+  _checkSignature(params, provider, stateless, function(error, result)
+  {
+    if(error)
+    {
+      return callback(error);
+    }
+    if(extensions && result.authenticated)
+    {
+      for(var ext in extensions)
+      {
+        if (!extensions.hasOwnProperty(ext))
+        { 
+          continue; 
+        }
+        var instance = extensions[ext];
+        instance.fillResult(params, result);
+      }
+    }
+
+    return callback(null, result);
+  });
 }
 
-var _checkSignature = function(params, callback, stateless)
+var _checkSignature = function(params, provider, stateless, callback)
 {
   if(!_isDef(params['openid.signed']) ||
     !_isDef(params['openid.sig']))
   {
-    return callback('No signature in response', { authenticated: false });
+    return callback({ message: 'No signature in response' }, { authenticated: false });
   }
 
   if(stateless)
   {
-    _checkSignatureUsingProvider(params, callback);
+    _checkSignatureUsingProvider(params, provider, callback);
   }
   else
   {
@@ -1070,15 +1105,15 @@ var _checkSignatureUsingAssociation = function(params, callback)
   {
     if(error)
     {
-      return callback('Error loading association', { authenticated: false });
+      return callback({ message: 'Error loading association' }, { authenticated: false });
     }
     if(!association)
     {
-      return callback('Invalid association handle', { authenticated: false });
+      return callback({ message:'Invalid association handle' }, { authenticated: false });
     }
     if(association.provider.version.indexOf('2.0') !== -1 && association.provider.endpoint !== params['openid.op_endpoint'])
     {
-      return callback('Association handle does not match provided endpoint', {authenticated: false});
+      return callback({ message:'Association handle does not match provided endpoint' }, {authenticated: false});
     }
     
     var message = '';
@@ -1089,7 +1124,7 @@ var _checkSignatureUsingAssociation = function(params, callback)
       var value = params['openid.' + param];
       if(!_isDef(value))
       {
-        return callback('At least one parameter referred in signature is not present in response', { authenticated: false });
+        return callback({ message: 'At least one parameter referred in signature is not present in response' }, { authenticated: false });
       }
       message += param + ':' + value + '\n';
     }
@@ -1100,16 +1135,16 @@ var _checkSignatureUsingAssociation = function(params, callback)
 
     if(ourSignature == params['openid.sig'])
     {
-      callback(null, { authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
+      callback(null, { authenticated: true, claimedIdentifier: association.provider.version.indexOf('2.0') !== -1 ? params['openid.claimed_id'] : params['openid.identity'] });
     }
     else
     {
-      callback('Invalid signature', { authenticated: false });
+      callback({ message: 'Invalid signature' }, { authenticated: false });
     }
   });
 }
 
-var _checkSignatureUsingProvider = function(params, callback)
+var _checkSignatureUsingProvider = function(params, provider, callback)
 {
   var requestParams = 
   {
@@ -1123,11 +1158,11 @@ var _checkSignatureUsingProvider = function(params, callback)
     }
   }
 
-  _post(params['openid.op_endpoint'], requestParams, function(data, headers, statusCode)
+  _post(_isDef(params['openid.ns']) ? (params['openid.op_endpoint'] || provider.endpoint) : provider.endpoint, requestParams, function(data, headers, statusCode)
   {
     if(statusCode != 200 || data == null)
     {
-      return callback('Invalid assertion response from provider', { authenticated: false });
+      return callback({ message: 'Invalid assertion response from provider' }, { authenticated: false });
     }
     else
     {
@@ -1135,11 +1170,11 @@ var _checkSignatureUsingProvider = function(params, callback)
 
       if(data['is_valid'] == 'true')
       {
-        return callback(null, { authenticated: true, claimedIdentifier: params['openid.claimed_id'] });
+        return callback(null, { authenticated: true, claimedIdentifier: provider.version.indexOf('2.0') !== -1 ? params['openid.claimed_id'] : params['openid.identity'] });
       }
       else
       {
-        return callback('Invalid signature', { authenticated: false });
+        return callback({ message: 'Invalid signature' }, { authenticated: false });
       }
     }
   });
