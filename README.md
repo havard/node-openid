@@ -4,7 +4,7 @@ OpenID for node.js is (yes, you guessed it) an OpenID implementation for node.js
 
 Highlights and features include:
 
-- Full OpenID 1.1/OpenID 2.0 compliant Relying Party (client) implementation
+- Full OpenID 1.0/1.1/2.0 compliant Relying Party (client) implementation
 - Very simple API
 - Simple extension points for association state
 
@@ -16,10 +16,8 @@ The library can be [reviewed and retrieved from GitHub](http://github.com/havard
 
 If you use [`npm`](http://npmjs.org), simply do `npm install openid`.
 
-If you don't use npm, you should. Alternatively, you can download the library, and move the 
-`lib` folder and `openid.js` to where you want them, and then `require('openid')`. 
-(Remember to do `require.paths.unshift` on the directory you put the file in unless it's 
-already in your `require.paths`.)
+Otherwise, you can grab the code from [GitHub](https://github.com/havard/node-openid) 
+and 
 
 ## Examples
 
@@ -109,15 +107,12 @@ The `openid` module includes default implementations for these functions using a
 
 The verification of a positive assertion (i.e. an authenticated user) can be sped up significantly by avoiding the need for additional provider discoveries when possible. In order to achieve, this speed-up, node-openid needs to cache its discovered providers. You can mix-in two functions to override the default cache, which is an in-memory cache utilizing a simple object store:
   
-  - `saveDiscoveredInformation(provider, useLocalIdentifierAsKey, callback)` is used when saving a discovered provider.  The following behavior is required:
-  - 
-    - If `useLocalIdentifierAsKey` is `true`, the `provider.localIdentifier` shall be used as the key for this object. Otherwise, the `provider.claimedIdentifier` attribute shall be used the key for this object. The keys  will be used for lookup later, when attempting to reuse this discovered information through `loadDiscoveredInformation`.
-    - The function should validate that the provider has the appropriate attributes (i.e. that it has a `localIdentifier` if `useLocalIdentifierAsKey` is `true`, or a `claimedIdentifier` otherwise) before saving the provider.
+  - `saveDiscoveredInformation(key, provider, callback)` is used when saving a discovered provider.  The following behavior is required:
+    - The `key` parameter should be uses as a key for storing the provider - it will be used as the lookup key when loading the provider. (Currently, the key is either a claimed identifier or an OP-local identifier, depending on the OpenID context.)
     - When saving fails for some reason, `callback(error)` is called with `error` being an error object specifying what failed.
     - When saving succeeds, `callback(null)` is called.
 
-  - `loadDiscoveredInformation(identifier, callback)` is used to load any previously discovered information about the provider for an identifier. The following behavior is required:    
- 
+  - `loadDiscoveredInformation(key, callback)` is used to load any previously discovered information about the provider for an identifier. The following behavior is required:    
       - When no provider is found for the identifier, `callback(null, null)` is called (i.e. it is not an error to not have any data to return).
       - When loading fails for some reason, `callback(error, null)` is called with `error` being an error string specifying why loading failed.
       - When loading succeeds, `callback(null, provider)` is called with the exact provider object that was previously stored using `saveDiscoveredInformation`.

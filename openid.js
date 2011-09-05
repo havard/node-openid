@@ -124,32 +124,20 @@ openid.removeAssociation = function(handle)
   return true;
 }
 
-openid.saveDiscoveredInformation = function(provider, useLocalIdentifierAsKey, callback)
+openid.saveDiscoveredInformation = function(key, provider, callback)
 {
-  if((!useLocalIdentifierAsKey && !provider.claimedIdentifier) || (useLocalIdentifierAsKey && !provider.localIdentifier))
-  {
-    return callback({ message: 'The provider does not contain the expected key identifier' });
-  }
-  
-  if (useLocalIdentifierAsKey) 
-  {
-    _discoveries[provider.localIdentifier] = provider;
-  }
-  else
-  {
-    _discoveries[provider.claimedIdentifier] = provider; 
-  }
+  _discoveries[key] = provider;
   return callback(null);
 }
 
-openid.loadDiscoveredInformation = function(identifier, callback)
+openid.loadDiscoveredInformation = function(key, callback)
 {
-  if(!_isDef(_discoveries[identifier]))
+  if(!_isDef(_discoveries[key]))
   {
     return callback(null, null);
   }
 
-  return callback(null, _discoveries[identifier]);
+  return callback(null, _discoveries[key]);
 }
 
 var _buildUrl = function(theUrl, params)
@@ -647,15 +635,15 @@ openid.associate = function(provider, callback, strict, algorithm)
         }
         /*else if(provider.version.indexOf('2.0') === -1)
         {
-          // 2011-07-22: This is an OpenID 1.1 provider which means
+          // 2011-07-22: This is an OpenID 1.0/1.1 provider which means
           // HMAC-SHA1 has already been attempted with a blank session
-          // type as per the OpenID 1.1 specification.
+          // type as per the OpenID 1.0/1.1 specification.
           // (See http://openid.net/specs/openid-authentication-1_1.html#mode_associate)
           // However, providers like wordpress.com don't follow the 
           // standard and reject these requests, but accept OpenID 2.0
           // style requests without a session type, so we have to give
           // those a shot as well.
-          callback({ message: 'Provider is OpenID 1.1 and does not support OpenID 1.1 association.' });
+          callback({ message: 'Provider is OpenID 1.0/1.1 and does not support OpenID 1.0/1.1 association.' });
         }*/
         else
         {
@@ -727,7 +715,7 @@ var _generateAssociationRequestParameters = function(version, algorithm)
   {
     if(version.indexOf('2.0') === -1)
     {
-      params['openid.session_type'] = ''; // OpenID 1.1 requires blank
+      params['openid.session_type'] = ''; // OpenID 1.0/1.1 requires blank
       params['openid.assoc_type'] = 'HMAC-SHA1';
     }
     else
@@ -775,7 +763,14 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
         var provider = providers[providerIndex];
         if(provider.claimedIdentifier)
         {
-          return openid.saveDiscoveredInformation(provider, provider.version.indexOf('2.0') === -1, function(error)
+          var useLocalIdentifierAsKey = provider.version.indexOf('2.0') === -1;
+          if((!useLocalIdentifierAsKey && !provider.claimedIdentifier) || (useLocalIdentifierAsKey && !provider.localIdentifier))
+          {
+            return callback({ message: 'Cannot retain discovered information; the provider does not contain the required attributes' });
+          }
+          
+          return openid.saveDiscoveredInformation(useLocalIdentifierAsKey ? provider.localIdentifier : provider.claimedIdentifier, 
+            provider, function(error)
           {
             if(error)
             {
@@ -789,7 +784,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
           return callback(null, authUrl);
         }
         else {
-          successOrNext({ message: 'OpenID 1.1 provider cannot be used without a claimed identifier' });
+          successOrNext({ message: 'OpenID 1.0/1.1 provider cannot be used without a claimed identifier' });
         }
       }
       if(++providerIndex >= providers.length)
@@ -847,7 +842,6 @@ var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, 
     }
   }
 
-  // TODO: 1.1 compatibility
   if(provider.claimedIdentifier)
   {
     params['openid.claimed_id'] = provider.claimedIdentifier;
@@ -866,7 +860,7 @@ var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, 
       'http://specs.openid.net/auth/2.0/identifier_select';
   }
   else {
-    return callback({ message: 'OpenID 1.1 provider cannot be used without a claimed identifier' });
+    return callback({ message: 'OpenID 1.0/1.1 provider cannot be used without a claimed identifier' });
   }
 
   if(assoc_handle)
