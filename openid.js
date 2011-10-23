@@ -943,7 +943,7 @@ var _verifyAssertionData = function(params, callback, stateless, extensions) {
 
   // TODO: Check nonce if OpenID 2.0
   
-  _verifyDiscoveredInformation(params, function(error, result)
+  _verifyDiscoveredInformation(params, stateless, extensions, function(error, result)
   {
     return callback(error, result);
   });
@@ -972,7 +972,7 @@ var _checkValidHandle = function(params)
   return !_isDef(params['openid.invalidate_handle']);
 }
 
-var _verifyDiscoveredInformation = function(params, callback)
+var _verifyDiscoveredInformation = function(params, stateless, extensions, callback)
 {
   var claimedIdentifier = params['openid.claimed_id'];
   var useLocalIdentifierAsKey = false;
@@ -1005,7 +1005,7 @@ var _verifyDiscoveredInformation = function(params, callback)
 
     if(provider)
     {
-      return _verifyAssertionAgainstProvider(provider, params, callback);
+      return _verifyAssertionAgainstProvider(provider, params, stateless, extensions, callback);
     }
     else if (useLocalIdentifierAsKey) {
       return callback({ message: 'OpenID 1.0/1.1 response received, but no information has been discovered about the provider. It is likely that this is a fraudulent authentication response.' });
@@ -1029,7 +1029,7 @@ var _verifyDiscoveredInformation = function(params, callback)
         {
           continue;
         }
-        return _verifyAssertionAgainstProvider(provider, params, callback);
+        return _verifyAssertionAgainstProvider(provider, params, stateless, extensions, callback);
       }
 
       return callback({ message: 'No providers were discovered for the claimed identifier' });
@@ -1037,7 +1037,7 @@ var _verifyDiscoveredInformation = function(params, callback)
   });
 }
 
-var _verifyAssertionAgainstProvider = function(provider, params, callback)
+var _verifyAssertionAgainstProvider = function(provider, params, stateless, extensions, callback)
 {
   if(provider.version.indexOf('2.0') !== -1 && provider.endpoint != params['openid.op_endpoint'])
   {
