@@ -85,8 +85,8 @@ var server = require('http').createServer(
             res.end('<!DOCTYPE html><html><body>'
                 + '<form method="get" action="/authenticate">'
                 + '<p>Login using OpenID</p>'
-                + '<input name="openid_identifier" />'
-                + '<input type="submit" value="Login" />'
+                + '<input name="openid_identifier">'
+                + '<input type="submit" value="Login">'
                 + '</form></body></html>');
         }
     });
