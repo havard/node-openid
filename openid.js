@@ -796,7 +796,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
       if(stateless)
       {
         _requestAuthentication(currentProvider, null, returnUrl, 
-          realm, immediate, extensions || {}, successOrNext);
+          realm, immediate, extensions || [], successOrNext);
       }
 
       else
@@ -810,7 +810,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
           else
           {
             _requestAuthentication(currentProvider, answer.assoc_handle, returnUrl, 
-              realm, immediate, extensions || {}, successOrNext);
+              realm, immediate, extensions || [], successOrNext);
           }
         });
         
