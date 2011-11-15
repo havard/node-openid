@@ -94,10 +94,11 @@ exports.testResolveLiveJournalUser = function(test)
 
 exports.testResolveOpenID11 = function(test)
 {
-  openid.discover('http://buzz.blogger.com/',
+  openid.discover('http://www.superheroofthemonth.com/',
     function(error, providers)
     {
       assert.ok(!error);
+      assert.notEqual(null, providers);
       assert.equal(1, providers.length);
       test.done();
     });
@@ -131,7 +132,7 @@ exports.testAssociateWithLiveJournal = function(test)
 
 exports.testAssociateWithOpenID11 = function(test)
 {
-  associateTest('http://buzz.blogger.com/', test);
+  associateTest('http://www.superheroofthemonth.com/', test);
 }
 
 exports.testImmediateAuthenticationWithGoogle = function(test)
