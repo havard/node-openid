@@ -1124,7 +1124,7 @@ var _checkSignatureUsingAssociation = function(params, callback)
     }
 
     var hmac = crypto.createHmac(association.type, _base64ToPlain(association.secret));
-    hmac.update(message);
+    hmac.update(message, 'utf8');
     var ourSignature = hmac.digest('base64');
 
     if(ourSignature == params['openid.sig'])
