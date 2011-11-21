@@ -26,8 +26,7 @@
  * vim: set sw=2 ts=2 et tw=80 : 
  */
 
-var bigint = require('./lib/bigint'),
-    convert = require('./lib/convert'),
+var convert = require('./lib/convert'),
     crypto = require('crypto'),
     http = require('http'),
     https = require('https'),
@@ -66,19 +65,14 @@ var _isDef = function(e)
   return e !== undefined;
 }
 
-var _toBase64 = function(bigint)
+var _toBase64 = function(binary)
 {
-  return convert.base64.encode(convert.btwoc(convert.chars_from_hex(bigint.toString(16))));
-}
-
-var _base64ToPlain = function(str)
-{
-  return convert.unbtwoc(convert.base64.decode(str));
+  return convert.base64.encode(convert.btwoc(binary));
 }
 
 var _fromBase64 = function(str)
 {
-  return new bigint.BigInteger(convert.hex_from_chars(convert.unbtwoc(convert.base64.decode(str))), 16);
+  return convert.unbtwoc(convert.base64.decode(str));
 }
 
 var _xor = function(a, b)
@@ -557,29 +551,17 @@ openid.discover = function(identifier, callback)
   });
 }
 
-var _generateDiffieHellmanParameters = function(algorithm)
+var _createDiffieHellmanKeyExchange = function(algorithm)
 {
-  var defaultParams = {};
-  defaultParams.p = 'ANz5OguIOXLsDhmYmsWizjEOHTdxfo2Vcbt2I3MYZuYe91ouJ4mLBX+YkcLiemOcPym2CBRYHNOyyjmG0mg3BVd9RcLn5S3IHHoXGHblzqdLFEi/368Ygo79JRnxTkXjgmY0rxlJ5bU1zIKaSDuKdiI+XUkKJX8Fvf8W8vsixYOr';
-  defaultParams.g = 'Ag==';
+  var defaultPrime = 'ANz5OguIOXLsDhmYmsWizjEOHTdxfo2Vcbt2I3MYZuYe91ouJ4mLBX+YkcLiemOcPym2CBRYHNOyyjmG0mg3BVd9RcLn5S3IHHoXGHblzqdLFEi/368Ygo79JRnxTkXjgmY0rxlJ5bU1zIKaSDuKdiI+XUkKJX8Fvf8W8vsixYOr';
 
-  var p = _fromBase64(defaultParams.p);
-  var g = _fromBase64(defaultParams.g);
-  var a = null;
-  if(algorithm == 'DH-SHA1')
-  {
-    a = new bigint.BigInteger(160, 1, new bigint.SecureRandom());
-  }
-  else 
-  {
-    a = new bigint.BigInteger(256, 1, new bigint.SecureRandom());
-  }
-  var j = g.modPow(a, p);
+  var dh = crypto.createDiffieHellman(defaultPrime, 'base64');
 
-  return { p: _toBase64(p),
-    g: _toBase64(g), 
-    a: _toBase64(a), 
-    j: _toBase64(j) };
+  var randomPrivateKey = crypto.randomBytes(algorithm == 'DH-SHA1' ? 20 : 32);
+  dh.setPrivateKey(randomPrivateKey);
+  dh.generateKeys();
+
+  return dh;
 }
 
 openid.associate = function(provider, callback, strict, algorithm)
@@ -593,10 +575,10 @@ openid.associate = function(provider, callback, strict, algorithm)
   var dh = null;
   if(algorithm.indexOf('no-encryption') === -1)
   {
-    dh = _generateDiffieHellmanParameters(algorithm);
-    params['openid.dh_modulus'] = dh.p;
-    params['openid.dh_gen'] = dh.g;
-    params['openid.dh_consumer_public'] = dh.j;
+    dh = _createDiffieHellmanKeyExchange(algorithm);
+    params['openid.dh_modulus'] = _toBase64(dh.getPrime());
+    params['openid.dh_gen'] = _toBase64(dh.getGenerator());
+    params['openid.dh_consumer_public'] = _toBase64(dh.getPublicKey());
   }
 
   _post(provider.endpoint, params, function(data, headers, statusCode)
@@ -673,8 +655,7 @@ openid.associate = function(provider, callback, strict, algorithm)
       else
       {
         var serverPublic = _fromBase64(data.dh_server_public);
-        var sharedSecret = convert.btwoc(convert.chars_from_hex(
-          serverPublic.modPow(_fromBase64(dh.a), _fromBase64(dh.p)).toString(16)));
+        var sharedSecret = dh.computeSecret(serverPublic);
         var hash = crypto.createHash(hashAlgorithm);
         hash.update(sharedSecret);
         sharedSecret = hash.digest();
@@ -1123,7 +1104,7 @@ var _checkSignatureUsingAssociation = function(params, callback)
       message += param + ':' + value + '\n';
     }
 
-    var hmac = crypto.createHmac(association.type, _base64ToPlain(association.secret));
+    var hmac = crypto.createHmac(association.type, _fromBase64(association.secret));
     hmac.update(message, 'utf8');
     var ourSignature = hmac.digest('base64');
 

@@ -112,6 +112,7 @@ function associateTest(url, test)
       var provider = providers[0];
       openid.associate(provider, function(error, result)
       {
+        console.log(error);
         assert.ok(!error);
         assert.ok(result.expires_in);
         test.done();
