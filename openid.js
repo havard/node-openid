@@ -428,6 +428,20 @@ var _parseHtml = function(htmlUrl, html, callback, hops)
   }
 }
 
+var _parseHostMeta = function(hostMeta, callback)
+{
+  var match = /^Link: <([^\n\r]+)>;/.exec(hostMeta);
+  if(match != null)
+  {
+    var xriUrl = match[0].slice(7,match.length - 4);
+    _resolveXri(xriUrl, callback);
+  }
+  else
+  {
+    callback(null)
+  }
+}
+
 var _resolveXri = function(xriUrl, callback, hops)
 {
   if(!hops)
@@ -510,6 +524,28 @@ var _resolveHtml = function(identifier, callback, hops, data)
 
 }
 
+var _resolveHostMeta = function(identifier, callback, fallBackToProxy)
+{
+  var host = url.parse(identifier);
+  hostMetaUrl = fallBackToProxy ? 'https://www.google.com/accounts/o8/.well-known/host-meta?hd=' + host.host : host.protocol + '://' + host.host + '/.well-known/host-meta';
+  _get(hostMetaUrl, null, function(data, headers, statusCode)
+  {
+    if(statusCode != 200 || data == null)
+    {
+      if(!fallBackToProxy){
+        _resolveHostMeta(identifier, callback, true);
+      }
+      else{
+        callback(null);
+      }
+    }
+    else
+    {
+      _parseHostMeta(data, callback);
+    }
+  });
+}
+
 openid.discover = function(identifier, callback)
 {
   identifier = _normalizeIdentifier(identifier);
@@ -531,7 +567,14 @@ openid.discover = function(identifier, callback)
       // Fallback to HTML discovery
       _resolveHtml(identifier, function(providers)
       {
-        callback(null, providers);
+        if(providers == null || providers.length == 0){
+          _resolveHostMeta(identifier, function(providers){
+            callback(null, providers);
+          });
+        }
+        else{
+          callback(null, providers);
+        }
       });
     }
     else
