@@ -874,9 +874,14 @@ var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, 
     params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
   }
 
-  for (var i = 0; i < extensions.length; i++)
+  for (var i in extensions)
   {
-    extension = extensions[i]
+    if(!extensions.hasOwnProperty(i))
+    {
+      continue;
+    }
+
+    var extension = extensions[i];
     for (var key in extension.requestParams)
     {
       if (!extension.requestParams.hasOwnProperty(key)) { continue; }
