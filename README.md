@@ -97,10 +97,11 @@ A more elaborate example including utilizing extensions can be found in `sample.
 
 ## Supported Extensions
 This library comes with built-in support for the following OpenID extensions:
-- The Simple Registration (SREG) 1.1 extension is implemented as `openid.SimpleRegistration`
-- The Attribute Exchange (AX) 1.0 extension is implemented as `openid.AttributeExchange`
-- The OAuth 1.0 extension is implemented as `openid.OAuthHybrid`
-- The User Interface 1.0 extension is implemented as `openid.UserInterface`
+
+ - The Simple Registration (SREG) 1.1 extension is implemented as `openid.SimpleRegistration`
+ - The Attribute Exchange (AX) 1.0 extension is implemented as `openid.AttributeExchange`
+ - The OAuth 1.0 extension is implemented as `openid.OAuthHybrid`
+ - The User Interface 1.0 extension is implemented as `openid.UserInterface`
 
 ## Storing association state
 
