@@ -39,25 +39,24 @@ var _discoveries = {};
 
 var openid = exports;
 
-openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions, hostMetaProxy)
+openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions)
 {
   this.returnUrl = returnUrl;
   this.realm = realm || null;
   this.stateless = stateless;
   this.strict = strict;
-  this.hostMetaProxy = hostMetaProxy;
   this.extensions = extensions;
 }
 
 openid.RelyingParty.prototype.authenticate = function(identifier, immediate, callback)
 {
   openid.authenticate(identifier, this.returnUrl, this.realm, 
-      immediate, this.stateless, callback, this.extensions, this.strict, this.hostMetaProxy);
+      immediate, this.stateless, callback, this.extensions, this.strict);
 }
 
 openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
 {
-  openid.verifyAssertion(requestOrUrl, callback, this.stateless, this.extensions, this.hostMetaProxy);
+  openid.verifyAssertion(requestOrUrl, callback, this.stateless, this.extensions, this.strict);
 }
 
 var _isDef = function(e)
@@ -525,13 +524,13 @@ var _resolveHtml = function(identifier, callback, hops, data)
 
 }
 
-var _resolveHostMeta = function(identifier, hostMetaProxy, callback, fallBackToProxy)
+var _resolveHostMeta = function(identifier, strict, callback, fallBackToProxy)
 {
   var host = url.parse(identifier);
   var hostMetaUrl;
-  if(fallBackToProxy && hostMetaProxy)
+  if(fallBackToProxy && !strict)
   {
-    hostMetaUrl = (typeof hostMetaProxy == 'function') ? hostMetaProxy(identifier, host.host) : hostMetaProxy + host.host
+    hostMetaUrl = 'https://www.google.com/accounts/o8/.well-known/host-meta?hd=' + host.host
   }
   else
   {
@@ -547,8 +546,8 @@ var _resolveHostMeta = function(identifier, hostMetaProxy, callback, fallBackToP
     {
       if(statusCode != 200 || data == null)
       {
-        if(!fallBackToProxy){
-          _resolveHostMeta(identifier, hostMetaProxy, callback, true);
+        if(!fallBackToProxy && !strict){
+          _resolveHostMeta(identifier, strict, callback, true);
         }
         else{
           callback(null);
@@ -562,12 +561,7 @@ var _resolveHostMeta = function(identifier, hostMetaProxy, callback, fallBackToP
   }
 }
 
-openid.discover = function(identifier, callback)
-{
-  openid.discoverWithHostMetaProxy(identifier, null, callback);
-}
-
-openid.discoverWithHostMetaProxy = function(identifier, hostMetaProxy, callback)
+openid.discover = function(identifier, strict, callback)
 {
   identifier = _normalizeIdentifier(identifier);
   if(!identifier) 
@@ -589,7 +583,7 @@ openid.discoverWithHostMetaProxy = function(identifier, hostMetaProxy, callback)
       _resolveHtml(identifier, function(providers)
       {
         if(providers == null || providers.length == 0){
-          _resolveHostMeta(identifier, hostMetaProxy, function(providers){
+          _resolveHostMeta(identifier, strict, function(providers){
             callback(null, providers);
           });
         }
@@ -786,9 +780,9 @@ var _generateAssociationRequestParameters = function(version, algorithm)
   return params;
 }
 
-openid.authenticate = function(identifier, returnUrl, realm, immediate, stateless, callback, extensions, strict, hostMetaProxy)
+openid.authenticate = function(identifier, returnUrl, realm, immediate, stateless, callback, extensions, strict)
 {
-  openid.discoverWithHostMetaProxy(identifier, hostMetaProxy, function(error, providers)
+  openid.discover(identifier, strict, function(error, providers)
   {
     if(error)
     {
@@ -937,7 +931,7 @@ var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, 
   callback(null, _buildUrl(provider.endpoint, params));
 }
 
-openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions, hostMetaProxy)
+openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions, strict)
 {
   extensions = extensions || {};
   var assertionUrl = requestOrUrl;
@@ -954,7 +948,7 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions,
         
         requestOrUrl.on('end', function() {
           var params = querystring.parse(data);
-          return _verifyAssertionData(params, callback, stateless, extensions, hostMetaProxy);
+          return _verifyAssertionData(params, callback, stateless, extensions, strict);
         });
       }
       else {
@@ -972,10 +966,10 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions,
   assertionUrl = url.parse(assertionUrl, true);
   var params = assertionUrl.query;
 
-  return _verifyAssertionData(params, callback, stateless, extensions, hostMetaProxy);
+  return _verifyAssertionData(params, callback, stateless, extensions, strict);
 }
 
-var _verifyAssertionData = function(params, callback, stateless, extensions, hostMetaProxy) {
+var _verifyAssertionData = function(params, callback, stateless, extensions, strict) {
   var assertionError = _getAssertionError(params);
   if(assertionError)
   {
@@ -988,7 +982,7 @@ var _verifyAssertionData = function(params, callback, stateless, extensions, hos
 
   // TODO: Check nonce if OpenID 2.0
   
-  _verifyDiscoveredInformation(params, stateless, extensions, hostMetaProxy, function(error, result)
+  _verifyDiscoveredInformation(params, stateless, extensions, strict, function(error, result)
   {
     return callback(error, result);
   });
@@ -1017,7 +1011,7 @@ var _checkValidHandle = function(params)
   return !_isDef(params['openid.invalidate_handle']);
 }
 
-var _verifyDiscoveredInformation = function(params, stateless, extensions, hostMetaProxy, callback)
+var _verifyDiscoveredInformation = function(params, stateless, extensions, strict, callback)
 {
   var claimedIdentifier = params['openid.claimed_id'];
   var useLocalIdentifierAsKey = false;
@@ -1056,7 +1050,7 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, hostM
       return callback({ message: 'OpenID 1.0/1.1 response received, but no information has been discovered about the provider. It is likely that this is a fraudulent authentication response.' });
     }
     
-    openid.discoverWithHostMetaProxy(claimedIdentifier, hostMetaProxy, function(error, providers)
+    openid.discover(claimedIdentifier, strict, function(error, providers)
     {
       if(error)
       {
