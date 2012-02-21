@@ -49,14 +49,14 @@ openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions)
 }
 
 openid.RelyingParty.prototype.authenticate = function(identifier, immediate, callback)
-{ 
+{
   openid.authenticate(identifier, this.returnUrl, this.realm, 
       immediate, this.stateless, callback, this.extensions, this.strict);
 }
 
 openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
 {
-  openid.verifyAssertion(requestOrUrl, callback, this.stateless, this.extensions);
+  openid.verifyAssertion(requestOrUrl, callback, this.stateless, this.extensions, this.strict);
 }
 
 var _isDef = function(e)
@@ -428,6 +428,20 @@ var _parseHtml = function(htmlUrl, html, callback, hops)
   }
 }
 
+var _parseHostMeta = function(hostMeta, callback)
+{
+  var match = /^Link: <([^\n\r]+)>;/.exec(hostMeta);
+  if(match != null)
+  {
+    var xriUrl = match[0].slice(7,match.length - 4);
+    _resolveXri(xriUrl, callback);
+  }
+  else
+  {
+    callback(null)
+  }
+}
+
 var _resolveXri = function(xriUrl, callback, hops)
 {
   if(!hops)
@@ -510,7 +524,44 @@ var _resolveHtml = function(identifier, callback, hops, data)
 
 }
 
-openid.discover = function(identifier, callback)
+var _resolveHostMeta = function(identifier, strict, callback, fallBackToProxy)
+{
+  var host = url.parse(identifier);
+  var hostMetaUrl;
+  if(fallBackToProxy && !strict)
+  {
+    hostMetaUrl = 'https://www.google.com/accounts/o8/.well-known/host-meta?hd=' + host.host
+  }
+  else
+  {
+    hostMetaUrl = host.protocol + '://' + host.host + '/.well-known/host-meta';
+  }
+  if(!hostMetaUrl)
+  {
+    callback(null);
+  }
+  else
+  {
+    _get(hostMetaUrl, null, function(data, headers, statusCode)
+    {
+      if(statusCode != 200 || data == null)
+      {
+        if(!fallBackToProxy && !strict){
+          _resolveHostMeta(identifier, strict, callback, true);
+        }
+        else{
+          callback(null);
+        }
+      }
+      else
+      {
+        _parseHostMeta(data, callback);
+      }
+    });
+  }
+}
+
+openid.discover = function(identifier, strict, callback)
 {
   identifier = _normalizeIdentifier(identifier);
   if(!identifier) 
@@ -531,7 +582,14 @@ openid.discover = function(identifier, callback)
       // Fallback to HTML discovery
       _resolveHtml(identifier, function(providers)
       {
-        callback(null, providers);
+        if(providers == null || providers.length == 0){
+          _resolveHostMeta(identifier, strict, function(providers){
+            callback(null, providers);
+          });
+        }
+        else{
+          callback(null, providers);
+        }
       });
     }
     else
@@ -724,7 +782,7 @@ var _generateAssociationRequestParameters = function(version, algorithm)
 
 openid.authenticate = function(identifier, returnUrl, realm, immediate, stateless, callback, extensions, strict)
 {
-  openid.discover(identifier, function(error, providers)
+  openid.discover(identifier, strict, function(error, providers)
   {
     if(error)
     {
@@ -873,7 +931,7 @@ var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, 
   callback(null, _buildUrl(provider.endpoint, params));
 }
 
-openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
+openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions, strict)
 {
   extensions = extensions || {};
   var assertionUrl = requestOrUrl;
@@ -890,7 +948,7 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
         
         requestOrUrl.on('end', function() {
           var params = querystring.parse(data);
-          return _verifyAssertionData(params, callback, stateless, extensions);
+          return _verifyAssertionData(params, callback, stateless, extensions, strict);
         });
       }
       else {
@@ -908,10 +966,10 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions)
   assertionUrl = url.parse(assertionUrl, true);
   var params = assertionUrl.query;
 
-  return _verifyAssertionData(params, callback, stateless, extensions);
+  return _verifyAssertionData(params, callback, stateless, extensions, strict);
 }
 
-var _verifyAssertionData = function(params, callback, stateless, extensions) {
+var _verifyAssertionData = function(params, callback, stateless, extensions, strict) {
   var assertionError = _getAssertionError(params);
   if(assertionError)
   {
@@ -924,7 +982,7 @@ var _verifyAssertionData = function(params, callback, stateless, extensions) {
 
   // TODO: Check nonce if OpenID 2.0
   
-  _verifyDiscoveredInformation(params, stateless, extensions, function(error, result)
+  _verifyDiscoveredInformation(params, stateless, extensions, strict, function(error, result)
   {
     return callback(error, result);
   });
@@ -953,7 +1011,7 @@ var _checkValidHandle = function(params)
   return !_isDef(params['openid.invalidate_handle']);
 }
 
-var _verifyDiscoveredInformation = function(params, stateless, extensions, callback)
+var _verifyDiscoveredInformation = function(params, stateless, extensions, strict, callback)
 {
   var claimedIdentifier = params['openid.claimed_id'];
   var useLocalIdentifierAsKey = false;
@@ -992,7 +1050,7 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, callb
       return callback({ message: 'OpenID 1.0/1.1 response received, but no information has been discovered about the provider. It is likely that this is a fraudulent authentication response.' });
     }
     
-    openid.discover(claimedIdentifier, function(error, providers)
+    openid.discover(claimedIdentifier, strict, function(error, providers)
     {
       if(error)
       {
