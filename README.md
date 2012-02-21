@@ -119,6 +119,15 @@ The verification of a positive assertion (i.e. an authenticated user) can be spe
       - When loading fails for some reason, `callback(error, null)` is called with `error` being an error string specifying why loading failed.
       - When loading succeeds, `callback(null, provider)` is called with the exact provider object that was previously stored using `saveDiscoveredInformation`.
 
+## Extensions
+
+node-openid supports the following extensions:
+  - `openid.SimpleRegistration`: openid.ns.sreg http://openid.net/extensions/sreg/1.1
+  - `openid.UserInterface`: openid.ns.ui http://specs.openid.net/extensions/ui/1.0
+  - `openid.AttributeExchange`: openid.ns.ax http://openid.net/srv/ax/1.0
+  - `openid.OAuthHybrid`: openid.ns.oauth http://specs.openid.net/extensions/oauth/1.0
+
+
 ## License
 
 OpenID for node.js is licensed under the MIT license. See LICENSE for further details. 
