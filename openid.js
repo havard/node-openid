@@ -94,8 +94,10 @@ var _xor = function(a, b)
 openid.saveAssociation = function(provider, type, handle, secret, expiry_time_in_seconds, callback)
 {
   setTimeout(function() {
+    console.log('Removing ' + handle);
     openid.removeAssociation(handle);
   }, expiry_time_in_seconds * 1000);
+  console.log('Saving ' + handle);
   _associations[handle] = {provider: provider, type : type, secret: secret};
   callback(null); // Custom implementations may report error as first argument
 }
@@ -800,14 +802,15 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
       if(!error && authUrl)
       {
         var provider = providers[providerIndex];
+
         if(provider.claimedIdentifier)
         {
           var useLocalIdentifierAsKey = provider.version.indexOf('2.0') === -1;
-          if((!useLocalIdentifierAsKey && !provider.claimedIdentifier) || (useLocalIdentifierAsKey && !provider.localIdentifier))
+          if(useLocalIdentifierAsKey && !provider.localIdentifier)
           {
             return callback({ message: 'Cannot retain discovered information; the provider does not contain the required attributes' });
           }
-          
+
           return openid.saveDiscoveredInformation(useLocalIdentifierAsKey ? provider.localIdentifier : provider.claimedIdentifier, 
             provider, function(error)
           {
@@ -1082,7 +1085,7 @@ var _verifyAssertionAgainstProvider = function(provider, params, stateless, exte
   {
     return callback({ message: 'OpenID provider endpoint in assertion response does not match discovered OpenID provider endpoint' });
   }
-  if(provider.claimedIdentifier && provider.claimedIdentifier != params['openid.claimed_id'])
+  if(provider.version.indexOf('2.0') !== -1 && provider.claimedIdentifier && provider.claimedIdentifier != params['openid.claimed_id'])
   {
     return callback({ message: 'Claimed identifier in assertion response does not match discovered claimed identifier' });
   }
@@ -1168,7 +1171,7 @@ var _checkSignatureUsingAssociation = function(params, callback)
 
     if(ourSignature == params['openid.sig'])
     {
-      callback(null, { authenticated: true, claimedIdentifier: association.provider.version.indexOf('2.0') !== -1 ? params['openid.claimed_id'] : params['openid.identity'] });
+      callback(null, { authenticated: true, claimedIdentifier: association.provider.version.indexOf('2.0') !== -1 ? params['openid.claimed_id'] : association.provider.claimedIdentifier });
     }
     else
     {
