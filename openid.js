@@ -1084,13 +1084,23 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
 
 var _verifyAssertionAgainstProvider = function(provider, params, stateless, extensions, callback)
 {
-  if(provider.version.indexOf('2.0') !== -1 && provider.endpoint != params['openid.op_endpoint'])
+  if(provider.version.indexOf('2.0') !== -1)
   {
-    return callback({ message: 'OpenID provider endpoint in assertion response does not match discovered OpenID provider endpoint' });
-  }
-  if(provider.version.indexOf('2.0') !== -1 && provider.claimedIdentifier && provider.claimedIdentifier != params['openid.claimed_id'])
-  {
-    return callback({ message: 'Claimed identifier in assertion response does not match discovered claimed identifier' });
+    var endpoint = params['openid.op_endpoint'];
+    if (endpoint) {
+      var qsIndex = endpoint.indexOf('?');
+      if (qsIndex !== -1) {
+        endpoint = endpoint.substring(0, qsIndex);
+      }
+    }
+    if (provider.endpoint != endpoint) {
+      console.log(provider.endpoint);
+      console.log(endpoint);
+      return callback({ message: 'OpenID provider endpoint in assertion response does not match discovered OpenID provider endpoint' });
+    }
+    if(provider.claimedIdentifier && provider.claimedIdentifier != params['openid.claimed_id']) {
+      return callback({ message: 'Claimed identifier in assertion response does not match discovered claimed identifier' });
+    }
   }
   if(provider.localIdentifier && provider.localIdentifier != params['openid.identity'])
   {
