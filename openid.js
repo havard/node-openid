@@ -1070,7 +1070,7 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
       for(var i = 0; i < providers.length; ++i)
       {
         var provider = providers[i];
-        if(!provider.version || provider.version != params['openid.ns'])
+        if(!provider.version || provider.version != params['openid.ns'] || !provider.endpoint || provider.endpoint != params['openid.op_endpoint'])
         {
           continue;
         }
