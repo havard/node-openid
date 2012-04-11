@@ -22,8 +22,8 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *
- * -*- Mode: JS; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- 
- * vim: set sw=2 ts=2 et tw=80 : 
+ * -*- Mode: JS; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
+ * vim: set sw=2 ts=2 et tw=80 :
  */
 
 var convert = require('./lib/convert'),
@@ -50,7 +50,7 @@ openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions)
 
 openid.RelyingParty.prototype.authenticate = function(identifier, immediate, callback)
 {
-  openid.authenticate(identifier, this.returnUrl, this.realm, 
+  openid.authenticate(identifier, this.returnUrl, this.realm,
       immediate, this.stateless, callback, this.extensions, this.strict);
 }
 
@@ -169,7 +169,7 @@ var _get = function(getUrl, params, callback, redirects)
   {
     path += '?' + getUrl.query;
   }
-  var options = 
+  var options =
   {
     host: getUrl.hostname,
     port: _isDef(getUrl.port) ? parseInt(getUrl.port, 10) :
@@ -204,7 +204,7 @@ var _get = function(getUrl, params, callback, redirects)
 
     res.on('end', function() { done(); });
     res.on('close', function() { done(); });
-  }).on('error', function(error) 
+  }).on('error', function(error)
   {
     return callback(error);
   });
@@ -222,13 +222,13 @@ var _post = function(postUrl, data, callback, redirects)
   }
 
   var encodedData = _encodePostData(data);
-  var options = 
+  var options =
   {
     host: postUrl.hostname,
     path: path,
     port: _isDef(postUrl.port) ? postUrl.port :
       (postUrl.protocol == 'https:' ? 443 : 80),
-    headers: 
+    headers:
     {
       'Content-Type': 'application/x-www-form-urlencoded',
       'Content-Length': encodedData.length
@@ -338,7 +338,7 @@ var _parseXrds = function(xrdsUrl, xrdsData)
     {
       provider.version = 'http://specs.openid.net/auth/2.0';
     }
-    else if(service.type == 'http://openid.net/signon/1.0' || 
+    else if(service.type == 'http://openid.net/signon/1.0' ||
       service.type == 'http://openid.net/signon/1.1')
     {
       provider.version = service.type;
@@ -408,22 +408,22 @@ var _parseHtml = function(htmlUrl, html, callback, hops)
     else
     {
       var localId = _matchLinkTag(html, 'openid.delegate');
-      callback([{ 
+      callback([{
         version: 'http://openid.net/signon/1.1',
-        endpoint: provider, 
+        endpoint: provider,
         claimedIdentifier: htmlUrl,
-        localIdentifier : localId 
+        localIdentifier : localId
       }]);
     }
   }
   else
   {
     var localId = _matchLinkTag(html, 'openid2.local_id');
-    callback([{ 
-      version: 'http://specs.openid.net/auth/2.0/signon', 
-      endpoint: provider, 
+    callback([{
+      version: 'http://specs.openid.net/auth/2.0/signon',
+      endpoint: provider,
       claimedIdentifier: htmlUrl,
-      localIdentifier : localId 
+      localIdentifier : localId
     }]);
   }
 }
@@ -564,7 +564,7 @@ var _resolveHostMeta = function(identifier, strict, callback, fallBackToProxy)
 openid.discover = function(identifier, strict, callback)
 {
   identifier = _normalizeIdentifier(identifier);
-  if(!identifier) 
+  if(!identifier)
   {
     return callback({ message: 'Invalid identifier' }, null);
   }
@@ -643,15 +643,15 @@ openid.associate = function(provider, callback, strict, algorithm)
   {
     if ((statusCode != 200 && statusCode != 400) || data === null)
     {
-      return callback({ 
-        message: 'HTTP request failed' 
-      }, { 
-        error: 'HTTP request failed', 
-        error_code: ''  + statusCode, 
-        ns: 'http://specs.openid.net/auth/2.0' 
+      return callback({
+        message: 'HTTP request failed'
+      }, {
+        error: 'HTTP request failed',
+        error_code: ''  + statusCode,
+        ns: 'http://specs.openid.net/auth/2.0'
       });
     }
-    
+
     data = _decodePostData(data);
 
     if(data.error_code == 'unsupported-type' || !_isDef(data.ns))
@@ -679,7 +679,7 @@ openid.associate = function(provider, callback, strict, algorithm)
           // HMAC-SHA1 has already been attempted with a blank session
           // type as per the OpenID 1.0/1.1 specification.
           // (See http://openid.net/specs/openid-authentication-1_1.html#mode_associate)
-          // However, providers like wordpress.com don't follow the 
+          // However, providers like wordpress.com don't follow the
           // standard and reject these requests, but accept OpenID 2.0
           // style requests without a session type, so we have to give
           // those a shot as well.
@@ -809,7 +809,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
             return callback({ message: 'Cannot retain discovered information; the provider does not contain the required attributes' });
           }
 
-          return openid.saveDiscoveredInformation(useLocalIdentifierAsKey ? provider.localIdentifier : provider.claimedIdentifier, 
+          return openid.saveDiscoveredInformation(useLocalIdentifierAsKey ? provider.localIdentifier : provider.claimedIdentifier,
             provider, function(error)
           {
             if(error)
@@ -835,7 +835,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
       var currentProvider = providers[providerIndex];
       if(stateless)
       {
-        _requestAuthentication(currentProvider, null, returnUrl, 
+        _requestAuthentication(currentProvider, null, returnUrl,
           realm, immediate, extensions || {}, successOrNext);
       }
 
@@ -849,11 +849,11 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
           }
           else
           {
-            _requestAuthentication(currentProvider, answer.assoc_handle, returnUrl, 
+            _requestAuthentication(currentProvider, answer.assoc_handle, returnUrl,
               realm, immediate, extensions || {}, successOrNext);
           }
         });
-        
+
       }
     };
 
@@ -947,11 +947,11 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions,
       if(requestOrUrl.headers['content-type'] == 'application/x-www-form-urlencoded') {
         // POST response received
         var data = '';
-        
+
         requestOrUrl.on('data', function(chunk) {
           data += chunk;
         });
-        
+
         requestOrUrl.on('end', function() {
           var params = querystring.parse(data);
           return _verifyAssertionData(params, callback, stateless, extensions, strict);
@@ -960,7 +960,7 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions,
       else {
         return callback({ message: 'Invalid POST response from OpenID provider' });
       }
-      
+
       return; // Avoid falling through to GET method assertion
     }
     else if(requestOrUrl.method != 'GET') {
@@ -987,7 +987,7 @@ var _verifyAssertionData = function(params, callback, stateless, extensions, str
   }
 
   // TODO: Check nonce if OpenID 2.0
-  
+
   _verifyDiscoveredInformation(params, stateless, extensions, strict, function(error, result)
   {
     return callback(error, result);
@@ -1034,12 +1034,12 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
       // OpenID 2.0+:
       // If there is no claimed identifier, then the
       // assertion is not about an identity
-      return callback(null, { authenticated: false }); 
+      return callback(null, { authenticated: false });
       }
   }
 
   if (useLocalIdentifierAsKey) {
-    claimedIdentifier = params['openid.identity'];  
+    claimedIdentifier = params['openid.identity'];
   }
   openid.loadDiscoveredInformation(claimedIdentifier, function(error, provider)
   {
@@ -1055,7 +1055,7 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
     else if (useLocalIdentifierAsKey) {
       return callback({ message: 'OpenID 1.0/1.1 response received, but no information has been discovered about the provider. It is likely that this is a fraudulent authentication response.' });
     }
-    
+
     openid.discover(claimedIdentifier, strict, function(error, providers)
     {
       if(error)
@@ -1070,7 +1070,7 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
       for(var i = 0; i < providers.length; ++i)
       {
         var provider = providers[i];
-        if(!provider.version || provider.version != params['openid.ns'])
+        if(!provider.version || provider.version != params['openid.ns'] || !provider.endpoint || provider.endpoint != params['openid.op_endpoint'])
         {
           continue;
         }
@@ -1108,8 +1108,8 @@ var _verifyAssertionAgainstProvider = function(provider, params, stateless, exte
       for(var ext in extensions)
       {
         if (!extensions.hasOwnProperty(ext))
-        { 
-          continue; 
+        {
+          continue;
         }
         var instance = extensions[ext];
         instance.fillResult(params, result);
@@ -1154,7 +1154,7 @@ var _checkSignatureUsingAssociation = function(params, callback)
     {
       return callback({ message:'Association handle does not match provided endpoint' }, {authenticated: false});
     }
-    
+
     var message = '';
     var signedParams = params['openid.signed'].split(',');
     for(var i = 0; i < signedParams.length; i++)
@@ -1185,7 +1185,7 @@ var _checkSignatureUsingAssociation = function(params, callback)
 
 var _checkSignatureUsingProvider = function(params, provider, callback)
 {
-  var requestParams = 
+  var requestParams =
   {
     'openid.mode' : 'check_authentication'
   };
@@ -1221,24 +1221,24 @@ var _checkSignatureUsingProvider = function(params, provider, callback)
 
 /* ==================================================================
  * Extensions
- * ================================================================== 
+ * ==================================================================
  */
 
-var _getExtensionAlias = function(params, ns) 
+var _getExtensionAlias = function(params, ns)
 {
   for (var k in params)
     if (params[k] == ns)
       return k.replace("openid.ns.", "");
 }
 
-/* 
+/*
  * Simple Registration Extension
  * http://openid.net/specs/openid-simple-registration-extension-1_1-01.html
  */
 
 var sreg_keys = ['nickname', 'email', 'fullname', 'dob', 'gender', 'postcode', 'country', 'language', 'timezone'];
 
-openid.SimpleRegistration = function SimpleRegistration(options) 
+openid.SimpleRegistration = function SimpleRegistration(options)
 {
   this.requestParams = {'openid.ns.sreg': 'http://openid.net/extensions/sreg/1.1'};
   if (options.policy_url)
@@ -1248,7 +1248,7 @@ openid.SimpleRegistration = function SimpleRegistration(options)
   for (var i = 0; i < sreg_keys.length; i++)
   {
     var key = sreg_keys[i];
-    if (options[key]) 
+    if (options[key])
     {
       if (options[key] == 'required')
       {
@@ -1283,11 +1283,11 @@ openid.SimpleRegistration.prototype.fillResult = function(params, result)
   }
 };
 
-/* 
+/*
  * User Interface Extension
- * http://svn.openid.net/repos/specifications/user_interface/1.0/trunk/openid-user-interface-extension-1_0.html 
+ * http://svn.openid.net/repos/specifications/user_interface/1.0/trunk/openid-user-interface-extension-1_0.html
  */
-openid.UserInterface = function UserInterface(options) 
+openid.UserInterface = function UserInterface(options)
 {
   if (typeof(options) != 'object')
   {
@@ -1295,7 +1295,7 @@ openid.UserInterface = function UserInterface(options)
   }
 
   this.requestParams = {'openid.ns.ui': 'http://specs.openid.net/extensions/ui/1.0'};
-  for (var k in options) 
+  for (var k in options)
   {
     this.requestParams['openid.ui.' + k] = options[k];
   }
@@ -1306,16 +1306,16 @@ openid.UserInterface.prototype.fillResult = function(params, result)
   // TODO: Fill results
 }
 
-/* 
+/*
  * Attribute Exchange Extension
- * http://openid.net/specs/openid-attribute-exchange-1_0.html 
+ * http://openid.net/specs/openid-attribute-exchange-1_0.html
  * Also see:
- *  - http://www.axschema.org/types/ 
+ *  - http://www.axschema.org/types/
  *  - http://code.google.com/intl/en-US/apis/accounts/docs/OpenID.html#Parameters
  */
 // TODO: count handling
 
-var attributeMapping = 
+var attributeMapping =
 {
     'http://axschema.org/contact/country/home': 'country'
   , 'http://axschema.org/contact/email': 'email'
@@ -1327,8 +1327,8 @@ var attributeMapping =
   , 'http://axschema.org/namePerson': 'fullname'
 };
 
-openid.AttributeExchange = function AttributeExchange(options) 
-{ 
+openid.AttributeExchange = function AttributeExchange(options)
+{
   this.requestParams = {'openid.ns.ax': 'http://openid.net/srv/ax/1.0',
     'openid.ax.mode' : 'fetch_request'};
   var required = [];
@@ -1346,7 +1346,7 @@ openid.AttributeExchange = function AttributeExchange(options)
     }
   }
   var self = this;
-  required = required.map(function(ns, i) 
+  required = required.map(function(ns, i)
   {
     var attr = attributeMapping[ns] || 'req' + i;
     self.requestParams['openid.ax.type.' + attr] = ns;
@@ -1391,7 +1391,7 @@ openid.AttributeExchange.prototype.fillResult = function(params, result)
       values[matches[2]] = params[k];
     }
   }
-  for (var ns in aliases) 
+  for (var ns in aliases)
   {
     if (aliases[ns] in values)
     {
@@ -1412,8 +1412,8 @@ openid.OAuthHybrid.prototype.fillResult = function(params, result)
 {
   var extension = _getExtensionAlias(params, 'http://specs.openid.net/extensions/oauth/1.0') || 'oauth'
     , token_attr = 'openid.' + extension + '.request_token';
-  
-  
+
+
   if(params[token_attr] !== undefined)
   {
     result['request_token'] = params[token_attr];
