@@ -981,13 +981,12 @@ var _verifyAssertionData = function(params, callback, stateless, extensions, str
   {
     return callback({ message: assertionError }, { authenticated: false });
   }
-  if(!_checkValidHandle(params))
-  {
-    return callback({ message: 'Association handle has been invalidated' }, { authenticated: false });
+
+  if (!_invalidateAssociationHandleIfRequested(params)) {
+    return callback({ message: 'Unable to invalidate association handle'});
   }
 
   // TODO: Check nonce if OpenID 2.0
-  
   _verifyDiscoveredInformation(params, stateless, extensions, strict, function(error, result)
   {
     return callback(error, result);
@@ -1012,9 +1011,15 @@ var _getAssertionError = function(params)
   return null;
 }
 
-var _checkValidHandle = function(params)
+var _invalidateAssociationHandleIfRequested = function(params)
 {
-  return !_isDef(params['openid.invalidate_handle']);
+  if (params['is_valid'] == 'true' && _isDef(params['openid.invalidate_handle'])) {
+    if(!openid.removeAssociation(params['openid.invalidate_handle'])) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 var _verifyDiscoveredInformation = function(params, stateless, extensions, strict, callback)
@@ -1041,6 +1046,8 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
   if (useLocalIdentifierAsKey) {
     claimedIdentifier = params['openid.identity'];  
   }
+
+  claimedIdentifier = _getCanonicalClaimedIdentifier(claimedIdentifier);
   openid.loadDiscoveredInformation(claimedIdentifier, function(error, provider)
   {
     if(error)
@@ -1070,7 +1077,7 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
       for(var i = 0; i < providers.length; ++i)
       {
         var provider = providers[i];
-        if(!provider.version || provider.version != params['openid.ns'])
+        if(!provider.version || provider.version.indexOf(params['openid.ns']) !== 0)
         {
           continue;
         }
@@ -1093,13 +1100,15 @@ var _verifyAssertionAgainstProvider = function(provider, params, stateless, exte
         endpoint = endpoint.substring(0, qsIndex);
       }
     }
-    if (provider.endpoint != endpoint) {
-      console.log(provider.endpoint);
-      console.log(endpoint);
+    if (provider.endpoint != endpoint) 
+    {
       return callback({ message: 'OpenID provider endpoint in assertion response does not match discovered OpenID provider endpoint' });
     }
-    if(provider.claimedIdentifier && provider.claimedIdentifier != params['openid.claimed_id']) {
-      return callback({ message: 'Claimed identifier in assertion response does not match discovered claimed identifier' });
+    if(provider.claimedIdentifier) {
+      var claimedIdentifier = _getCanonicalClaimedIdentifier(params['openid.claimed_id']);
+      if(provider.claimedIdentifier != claimedIdentifier) {
+        return callback({ message: 'Claimed identifier in assertion response does not match discovered claimed identifier' });
+      }
     }
   }
   if(provider.localIdentifier && provider.localIdentifier != params['openid.identity'])
@@ -1227,7 +1236,22 @@ var _checkSignatureUsingProvider = function(params, provider, callback)
       }
     }
   });
+
 }
+
+
+var _getCanonicalClaimedIdentifier = function(claimedIdentifier) {
+  if(!claimedIdentifier) {
+    return claimedIdentifier;
+  }
+
+  var index = claimedIdentifier.indexOf('#');
+  if (index !== -1) {
+    return claimedIdentifier.substring(0, index);
+  }
+
+  return claimedIdentifier;
+};
 
 /* ==================================================================
  * Extensions
