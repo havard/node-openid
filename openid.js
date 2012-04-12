@@ -713,7 +713,7 @@ openid.associate = function(provider, callback, strict, algorithm)
       else
       {
         var serverPublic = _fromBase64(data.dh_server_public);
-        var sharedSecret = dh.computeSecret(serverPublic);
+        var sharedSecret = convert.btwoc(dh.computeSecret(serverPublic));
         var hash = crypto.createHash(hashAlgorithm);
         hash.update(sharedSecret);
         sharedSecret = hash.digest();
