@@ -596,9 +596,9 @@ openid.discover = function(identifier, strict, callback)
     {
       // Add claimed identifier to providers with local identifiers
       // to ensure correct resolution of identities
-      for(var p in providers)
+      for(var i = 0, len = providers.length; i < len; ++i)
       {
-        var provider = providers[p];
+        var provider = providers[i];
         if(!provider.claimedIdentifier && provider.localIdentifier)
         {
           provider.claimedIdentifier = identifier;
