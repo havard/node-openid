@@ -319,9 +319,9 @@ var _parseXrds = function(xrdsUrl, xrdsData)
   }
 
   var providers = [];
-  for(var s in services)
+  for(var i = 0, len = services.length; i < len; ++i)
   {
-    var service = services[s];
+    var service = services[i];
     var provider = {};
 
     provider.endpoint = service.uri;
