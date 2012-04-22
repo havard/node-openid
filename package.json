@@ -5,7 +5,7 @@
     "name": "Håvard Stranden",
     "email": "havard.stranden@gmail.com",
     "web": "http://ox.no" },
-  "version": "0.4.1",
+  "version": "0.4.2",
   "repository": {
     "type": "git",
     "url": "http://github.com/havard/node-openid.git" },
