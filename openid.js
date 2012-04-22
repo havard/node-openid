@@ -534,7 +534,7 @@ var _resolveHostMeta = function(identifier, strict, callback, fallBackToProxy)
   }
   else
   {
-    hostMetaUrl = host.protocol + '://' + host.host + '/.well-known/host-meta';
+    hostMetaUrl = host.protocol + '//' + host.host + '/.well-known/host-meta';
   }
   if(!hostMetaUrl)
   {
