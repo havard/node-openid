@@ -319,9 +319,9 @@ var _parseXrds = function(xrdsUrl, xrdsData)
   }
 
   var providers = [];
-  for(var s in services)
+  for(var i = 0, len = services.length; i < len; ++i)
   {
-    var service = services[s];
+    var service = services[i];
     var provider = {};
 
     provider.endpoint = service.uri;
@@ -596,9 +596,9 @@ openid.discover = function(identifier, strict, callback)
     {
       // Add claimed identifier to providers with local identifiers
       // to ensure correct resolution of identities
-      for(var p in providers)
+      for(var i = 0, len = providers.length; i < len; ++i)
       {
-        var provider = providers[p];
+        var provider = providers[i];
         if(!provider.claimedIdentifier && provider.localIdentifier)
         {
           provider.claimedIdentifier = identifier;
