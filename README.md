@@ -52,7 +52,7 @@ var server = require('http').createServer(
                 if (error)
                 {
                   res.writeHead(200);
-                  res.end('Authentication failed: ' + error);
+                  res.end('Authentication failed: ' + error.message);
                 }
                 else if (!authUrl)
                 {
