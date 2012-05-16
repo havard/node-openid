@@ -1089,18 +1089,23 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
   });
 }
 
+var _removeQueryString = function (theUrl)
+{
+  if (!theUrl)
+  {
+    return theUrl;
+  }
+  theUrl = url.parse(theUrl, true);
+  delete theUrl['search'];
+  return url.format(theUrl);
+}
+
 var _verifyAssertionAgainstProvider = function(provider, params, stateless, extensions, callback)
 {
   if(provider.version.indexOf('2.0') !== -1)
   {
     var endpoint = params['openid.op_endpoint'];
-    if (endpoint) {
-      var qsIndex = endpoint.indexOf('?');
-      if (qsIndex !== -1) {
-        endpoint = endpoint.substring(0, qsIndex);
-      }
-    }
-    if (provider.endpoint != endpoint) 
+    if (_removeQueryString(provider.endpoint) != _removeQueryString(endpoint))
     {
       return callback({ message: 'OpenID provider endpoint in assertion response does not match discovered OpenID provider endpoint' });
     }
