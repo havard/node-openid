@@ -159,6 +159,27 @@ var _buildUrl = function(theUrl, params)
   return url.format(theUrl);
 }
 
+var _proxyRequest = function(protocol, options)
+{
+  // If process.env['HTTP_PROXY'] is set, make sure path and
+  // the header Host are set to target url.
+  // HTTP and HTTPS traffic are sent to the same proxy server. 
+  // Example: `export HTTP_PROXY=http://localhost:8000`
+
+  if (!! process.env['HTTP_PROXY']) {
+    var proxy = url.parse(process.env['HTTP_PROXY']);
+    if (proxy.hostname && proxy.port) {
+      var targetHost = options.host;
+      if (! options.headers) options.headers = {};
+
+      options.host = proxy.hostname;
+      options.port = proxy.port;
+      options.path = protocol + '//' + targetHost + options.path;
+      options.headers['Host'] = targetHost;
+    }
+  }
+}
+
 var _get = function(getUrl, params, callback, redirects)
 {
   redirects = redirects || 5;
@@ -177,6 +198,8 @@ var _get = function(getUrl, params, callback, redirects)
     headers: { 'Accept' : 'application/xrds+xml,text/html,text/plain,*/*' },
     path: path
   };
+
+  _proxyRequest(getUrl.protocol, options);
 
   (getUrl.protocol == 'https:' ? https : http).get(options, function(res)
   {
@@ -236,6 +259,9 @@ var _post = function(postUrl, data, callback, redirects)
     },
     method: 'POST'
   };
+
+  _proxyRequest(postUrl.protocol, options);
+
   (postUrl.protocol == 'https:' ? https : http).request(options, function(res)
   {
     var data = '';
