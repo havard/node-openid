@@ -45,6 +45,10 @@ var extensions = [new openid.UserInterface(),
                         "http://axschema.org/contact/email": "required",
                         "http://axschema.org/namePerson/friendly": "required",
                         "http://axschema.org/namePerson": "required"
+                      }),
+                  new openid.PAPE(
+                      {
+                        "max_auth_age": 0
                       })];
 
 var relyingParty = new openid.RelyingParty(

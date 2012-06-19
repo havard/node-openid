@@ -1453,3 +1453,21 @@ openid.OAuthHybrid.prototype.fillResult = function(params, result)
     result['request_token'] = params[token_attr];
   }
 };
+
+/* 
+ * PAPE Extension
+ * http://specs.openid.net/extensions/pape/1.0
+ */
+openid.PAPE = function PAPE(options) 
+{
+  this.requestParams = {'openid.ns.pape': 'http://specs.openid.net/extensions/pape/1.0'};
+  for (var k in options) 
+  {
+    this.requestParams['openid.pape.' + k] = options[k];
+  }
+};
+
+openid.PAPE.prototype.fillResult = function(params, result)
+{
+	// So far not needed
+}
