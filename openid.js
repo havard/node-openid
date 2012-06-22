@@ -174,6 +174,7 @@ var _get = function(getUrl, params, callback, redirects)
     host: getUrl.hostname,
     port: _isDef(getUrl.port) ? parseInt(getUrl.port, 10) :
       (getUrl.protocol == 'https:' ? 443 : 80),
+    headers: { 'Accept' : 'application/xrds+xml,text/html,text/plain,*/*' },
     path: path
   };
 
