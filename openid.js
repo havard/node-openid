@@ -275,9 +275,12 @@ var _decodePostData = function(data)
   var lines = data.split('\n');
   var result = {};
   for (var i = 0; i < lines.length ; i++) {
-    var line = lines[i]
+    var line = lines[i];
+    if (line.length > 0 && line[line.length - 1] == '\r') {
+      line = line.substring(0, line.length - 1);
+    }
     var colon = line.indexOf(':');
-    if(colon === -1)
+    if (colon === -1)
     {
       continue;
     }
@@ -596,11 +599,13 @@ openid.discover = function(identifier, strict, callback)
     else
     {
       // Add claimed identifier to providers with local identifiers
-      // to ensure correct resolution of identities
+      // and OpenID 1.0/1.1 providers to ensure correct resolution 
+      // of identities and services
       for(var i = 0, len = providers.length; i < len; ++i)
       {
         var provider = providers[i];
-        if(!provider.claimedIdentifier && provider.localIdentifier)
+        if(!provider.claimedIdentifier && 
+          (provider.localIdentifier || provider.version.indexOf('2.0') === -1))
         {
           provider.claimedIdentifier = identifier;
         }
@@ -722,6 +727,10 @@ openid.associate = function(provider, callback, strict, algorithm)
         secret = convert.base64.encode(_xor(encMacKey, sharedSecret));
       }
 
+      if (!_isDef(data.assoc_handle)) {
+        return callback({ message: 'OpenID provider does not seem to support association; you need to use stateless mode'}, null);
+      }
+
       openid.saveAssociation(provider, hashAlgorithm,
         data.assoc_handle, secret, data.expires_in * 1, function(error)
         {
@@ -804,11 +813,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
 
         if(provider.claimedIdentifier)
         {
-          var useLocalIdentifierAsKey = provider.version.indexOf('2.0') === -1;
-          if(useLocalIdentifierAsKey && !provider.localIdentifier)
-          {
-            return callback({ message: 'Cannot retain discovered information; the provider does not contain the required attributes' });
-          }
+          var useLocalIdentifierAsKey = provider.version.indexOf('2.0') === -1 && provider.localIdentifier && provider.claimedIdentifier != provider.localIdentifier;
 
           return openid.saveDiscoveredInformation(useLocalIdentifierAsKey ? provider.localIdentifier : provider.claimedIdentifier, 
             provider, function(error)
@@ -1160,6 +1165,10 @@ var _checkSignature = function(params, provider, stateless, callback)
 
 var _checkSignatureUsingAssociation = function(params, callback)
 {
+  if (!_isDef(params['openid.assoc_handle']))
+  {
+    return callback({ message: 'No association handle in provider response. Find out whether the provider supports associations and/or use stateless mode.' });
+  }
   openid.loadAssociation(params['openid.assoc_handle'], function(error, association)
   {
     if(error)
@@ -1226,7 +1235,6 @@ var _checkSignatureUsingProvider = function(params, provider, callback)
     else
     {
       data = _decodePostData(data);
-
       if(data['is_valid'] == 'true')
       {
         return callback(null, { authenticated: true, claimedIdentifier: provider.version.indexOf('2.0') !== -1 ? params['openid.claimed_id'] : params['openid.identity'] });
