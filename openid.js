@@ -1100,12 +1100,6 @@ var _verifyAssertionAgainstProvider = function(provider, params, stateless, exte
   if(provider.version.indexOf('2.0') !== -1)
   {
     var endpoint = params['openid.op_endpoint'];
-    if (endpoint) {
-      var qsIndex = endpoint.indexOf('?');
-      if (qsIndex !== -1) {
-        endpoint = endpoint.substring(0, qsIndex);
-      }
-    }
     if (provider.endpoint != endpoint) 
     {
       return callback({ message: 'OpenID provider endpoint in assertion response does not match discovered OpenID provider endpoint' });
