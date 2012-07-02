@@ -162,51 +162,41 @@ var _buildUrl = function(theUrl, params)
 var _proxyRequest = function(protocol, options)
 {
   /* 
-  If process.env['HTTP_PROXY'] or process.env['HTTPS_PROXY'] is set,
-  make sure path and the header Host are set to target url.
+  If process.env['HTTP_PROXY_HOST'] and the env variable `HTTP_PROXY_POST`
+  are set, make sure path and the header Host are set to target url.
 
-  If only process.env['HTTP_PROXY'] is set, use it for both HTTP and
-  HTTPS traffic.
+  Similarly, `HTTPS_PROXY_HOST` and `HTTPS_PROXY_PORT` can be used
+  to proxy HTTPS traffic.
 
-  Explicit Proxies Example:
-      export HTTP_PROXY=http://localhost:8080
-      export HTTPS_PROXY=http://localhost:8443
-
-  HTTP and HTTPS traffic are sent to the same proxy server Example: 
-      export HTTP_PROXY=http://localhost:8000
+  Proxies Example:
+      export HTTP_PROXY_HOST=localhost
+      export HTTP_PROXY_PORT=8080
+      export HTTPS_PROXY_HOST=localhost
+      export HTTPS_PROXY_PORT=8442
   */
   var targetHost = options.host;
   if (!targetHost) return;
-
-  if ('https:' === protocol && !! process.env['HTTPS_PROXY']) {
-    var proxy = url.parse(process.env['HTTPS_PROXY']);
-    if (proxy.hostname && proxy.port) {
-
-      if (! options.headers) options.headers = {};
-
-      options.host = proxy.hostname;
-      options.port = proxy.port;
-      options.path = 'https://' + targetHost + options.path;
-      options.headers['Host'] = targetHost;
-      // This request was https, we're done.
-      return;
-    }
-  }
-
-  // Either http or https (if no HTTPS_PROXY present)
-  if (!! process.env['HTTP_PROXY']) {
-    var proxy = url.parse(process.env['HTTP_PROXY']);
-    if (proxy.hostname && proxy.port) {
+  var updateOptions = function (envPrefix) {
+    var proxyHostname = process.env[envPrefix + '_PROXY_HOST'].trim();
+    var proxyPort = parseInt(process.env[envPrefix + '_PROXY_PORT'], 10);
+    if (proxyHostname.length > 0 && ! isNaN(proxyPort)) {
 
       if (! options.headers) options.headers = {};
 
-      options.host = proxy.hostname;
-      options.port = proxy.port;
+      options.host = proxyHostname;
+      options.port = proxyPort;
       options.path = protocol + '//' + targetHost + options.path;
       options.headers['Host'] = targetHost;
     }
+  };
+  if ('https:' === protocol &&
+      !! process.env['HTTPS_PROXY_HOST'] &&
+      !! process.env['HTTPS_PROXY_PORT']) {
+    updateOptions('HTTPS');
+  } else if (!! process.env['HTTP_PROXY_HOST'] &&
+             !! process.env['HTTP_PROXY_PORT']) {
+    updateOptions('HTTP');
   }
-  return;
 }
 
 var _get = function(getUrl, params, callback, redirects)
