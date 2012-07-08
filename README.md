@@ -127,6 +127,13 @@ The verification of a positive assertion (i.e. an authenticated user) can be spe
       - When loading fails for some reason, `callback(error, null)` is called with `error` being an error string specifying why loading failed.
       - When loading succeeds, `callback(null, provider)` is called with the exact provider object that was previously stored using `saveDiscoveredInformation`.
 
+## Proxy Support
+`node-openid` makes HTTP and HTTPS requests during authentication. You can have these
+requests go through a proxy server, by using the following environment variables:
+
+ - HTTP_PROXY_HOST and HTTP_PROXY_PORT control how http:// requests are sent
+ - HTTPS_PROXY_HOST and HTTPS_PROXY_PORT control how https:// requests are sent
+
 ## License
 
 OpenID for node.js is licensed under the MIT license. See LICENSE for further details. 
