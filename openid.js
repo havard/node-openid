@@ -159,6 +159,46 @@ var _buildUrl = function(theUrl, params)
   return url.format(theUrl);
 }
 
+var _proxyRequest = function(protocol, options)
+{
+  /* 
+  If process.env['HTTP_PROXY_HOST'] and the env variable `HTTP_PROXY_POST`
+  are set, make sure path and the header Host are set to target url.
+
+  Similarly, `HTTPS_PROXY_HOST` and `HTTPS_PROXY_PORT` can be used
+  to proxy HTTPS traffic.
+
+  Proxies Example:
+      export HTTP_PROXY_HOST=localhost
+      export HTTP_PROXY_PORT=8080
+      export HTTPS_PROXY_HOST=localhost
+      export HTTPS_PROXY_PORT=8442
+  */
+  var targetHost = options.host;
+  if (!targetHost) return;
+  var updateOptions = function (envPrefix) {
+    var proxyHostname = process.env[envPrefix + '_PROXY_HOST'].trim();
+    var proxyPort = parseInt(process.env[envPrefix + '_PROXY_PORT'], 10);
+    if (proxyHostname.length > 0 && ! isNaN(proxyPort)) {
+
+      if (! options.headers) options.headers = {};
+
+      options.host = proxyHostname;
+      options.port = proxyPort;
+      options.path = protocol + '//' + targetHost + options.path;
+      options.headers['Host'] = targetHost;
+    }
+  };
+  if ('https:' === protocol &&
+      !! process.env['HTTPS_PROXY_HOST'] &&
+      !! process.env['HTTPS_PROXY_PORT']) {
+    updateOptions('HTTPS');
+  } else if (!! process.env['HTTP_PROXY_HOST'] &&
+             !! process.env['HTTP_PROXY_PORT']) {
+    updateOptions('HTTP');
+  }
+}
+
 var _get = function(getUrl, params, callback, redirects)
 {
   redirects = redirects || 5;
@@ -177,6 +217,8 @@ var _get = function(getUrl, params, callback, redirects)
     headers: { 'Accept' : 'application/xrds+xml,text/html,text/plain,*/*' },
     path: path
   };
+
+  _proxyRequest(getUrl.protocol, options);
 
   (getUrl.protocol == 'https:' ? https : http).get(options, function(res)
   {
@@ -236,6 +278,9 @@ var _post = function(postUrl, data, callback, redirects)
     },
     method: 'POST'
   };
+
+  _proxyRequest(postUrl.protocol, options);
+
   (postUrl.protocol == 'https:' ? https : http).request(options, function(res)
   {
     var data = '';
