@@ -602,9 +602,19 @@ var _resolveHostMeta = function(identifier, strict, callback, fallBackToProxy)
           callback(null);
         }
       }
-      else
+      else //statusCode == 200 && data != null
       {
-        _parseHostMeta(data, callback);
+        //Attempt to parse the data but if this fails it may be becuase
+        //the response to hostMetaUrl was some other http/html resource.
+        //Therefore fallback to the proxy if no providers are found.
+        _parseHostMeta(data, function(providers){
+          if((providers == null || providers.length == 0) && !fallBackToProxy && !strict){
+            _resolveHostMeta(identifier, strict, callback, true);
+          }
+          else{
+            callback(providers);
+          }
+        });
       }
     });
   }
@@ -1145,10 +1155,16 @@ var _verifyAssertionAgainstProvider = function(provider, params, stateless, exte
   if(provider.version.indexOf('2.0') !== -1)
   {
     var endpoint = params['openid.op_endpoint'];
-    if (provider.endpoint != endpoint) 
+    
+    //Give endpoint and provider.endpoint the same triming
+    endpoint              = _trimQueryString(endpoint)
+    var provider_endpoint = _trimQueryString(provider.endpoint);
+
+    if (provider_endpoint != endpoint) 
     {
       return callback({ message: 'OpenID provider endpoint in assertion response does not match discovered OpenID provider endpoint' });
     }
+
     if(provider.claimedIdentifier) {
       var claimedIdentifier = _getCanonicalClaimedIdentifier(params['openid.claimed_id']);
       if(provider.claimedIdentifier != claimedIdentifier) {
@@ -1182,6 +1198,16 @@ var _verifyAssertionAgainstProvider = function(provider, params, stateless, exte
 
     return callback(null, result);
   });
+}
+
+var _trimQueryString = function(endpoint){
+  if (endpoint) {
+    var qsIndex = endpoint.indexOf('?');
+    if (qsIndex !== -1) {
+      endpoint = endpoint.substring(0, qsIndex);
+    }
+  }
+  return endpoint;
 }
 
 var _checkSignature = function(params, provider, stateless, callback)
