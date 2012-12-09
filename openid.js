@@ -183,10 +183,12 @@ var _proxyRequest = function(protocol, options)
 
       if (! options.headers) options.headers = {};
 
+      var targetHostAndPort = targetHost + ':' + options.port;
+
       options.host = proxyHostname;
       options.port = proxyPort;
-      options.path = protocol + '//' + targetHost + options.path;
-      options.headers['Host'] = targetHost;
+      options.path = protocol + '//' + targetHostAndPort + options.path;
+      options.headers['Host'] = targetHostAndPort;
     }
   };
   if ('https:' === protocol &&
