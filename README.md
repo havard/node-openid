@@ -102,6 +102,7 @@ This library comes with built-in support for the following OpenID extensions:
  - The Attribute Exchange (AX) 1.0 extension is implemented as `openid.AttributeExchange`
  - The OAuth 1.0 extension is implemented as `openid.OAuthHybrid`
  - The User Interface 1.0 extension is implemented as `openid.UserInterface`
+ - The Provider Authentication Policy Extension 1.0 (PAPE) as `openid.pape`
 
 ## Storing association state
 
