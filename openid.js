@@ -669,7 +669,7 @@ var _createDiffieHellmanKeyExchange = function(algorithm)
   var dh = crypto.createDiffieHellman(defaultPrime, 'base64');
 
   var randomPrivateKey = crypto.randomBytes(algorithm == 'DH-SHA1' ? 20 : 32);
-  dh.setPrivateKey(randomPrivateKey);
+  dh.setPrivateKey(randomPrivateKey, 'binary');
   dh.generateKeys();
 
   return dh;
@@ -687,9 +687,9 @@ openid.associate = function(provider, callback, strict, algorithm)
   if(algorithm.indexOf('no-encryption') === -1)
   {
     dh = _createDiffieHellmanKeyExchange(algorithm);
-    params['openid.dh_modulus'] = _toBase64(dh.getPrime());
-    params['openid.dh_gen'] = _toBase64(dh.getGenerator());
-    params['openid.dh_consumer_public'] = _toBase64(dh.getPublicKey());
+    params['openid.dh_modulus'] = _toBase64(dh.getPrime('binary'));
+    params['openid.dh_gen'] = _toBase64(dh.getGenerator('binary'));
+    params['openid.dh_consumer_public'] = _toBase64(dh.getPublicKey('binary'));
   }
 
   _post(provider.endpoint, params, function(data, headers, statusCode)
@@ -766,10 +766,10 @@ openid.associate = function(provider, callback, strict, algorithm)
       else
       {
         var serverPublic = _fromBase64(data.dh_server_public);
-        var sharedSecret = convert.btwoc(dh.computeSecret(serverPublic));
+        var sharedSecret = convert.btwoc(dh.computeSecret(serverPublic, 'binary', 'binary'));
         var hash = crypto.createHash(hashAlgorithm);
         hash.update(sharedSecret);
-        sharedSecret = hash.digest();
+        sharedSecret = hash.digest('binary');
         var encMacKey = convert.base64.decode(data.enc_mac_key);
         secret = convert.base64.encode(_xor(encMacKey, sharedSecret));
       }
