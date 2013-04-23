@@ -173,8 +173,12 @@ var _proxyRequest = function(protocol, options)
       export HTTP_PROXY_PORT=8080
       export HTTPS_PROXY_HOST=localhost
       export HTTPS_PROXY_PORT=8442
+
+  Function returns protocol which should be used for network request, one of
+  http: or https:
   */
   var targetHost = options.host;
+  var newProtocol = protocol;
   if (!targetHost) return;
   var updateOptions = function (envPrefix) {
     var proxyHostname = process.env[envPrefix + '_PROXY_HOST'].trim();
@@ -195,10 +199,14 @@ var _proxyRequest = function(protocol, options)
       !! process.env['HTTPS_PROXY_HOST'] &&
       !! process.env['HTTPS_PROXY_PORT']) {
     updateOptions('HTTPS');
+    // Proxy server request must be done via http... it is responsible for
+    // Making the https request...    
+    newProtocol = 'http:';
   } else if (!! process.env['HTTP_PROXY_HOST'] &&
              !! process.env['HTTP_PROXY_PORT']) {
     updateOptions('HTTP');
   }
+  return newProtocol;
 }
 
 var _get = function(getUrl, params, callback, redirects)
@@ -220,9 +228,9 @@ var _get = function(getUrl, params, callback, redirects)
     path: path
   };
 
-  _proxyRequest(getUrl.protocol, options);
+  var protocol = _proxyRequest(getUrl.protocol, options);
 
-  (getUrl.protocol == 'https:' ? https : http).get(options, function(res)
+  (protocol == 'https:' ? https : http).get(options, function(res)
   {
     var data = '';
     res.on('data', function(chunk)
@@ -281,9 +289,9 @@ var _post = function(postUrl, data, callback, redirects)
     method: 'POST'
   };
 
-  _proxyRequest(postUrl.protocol, options);
+  var protocol = _proxyRequest(postUrl.protocol, options);
 
-  (postUrl.protocol == 'https:' ? https : http).request(options, function(res)
+  (protocol == 'https:' ? https : http).request(options, function(res)
   {
     var data = '';
     res.on('data', function(chunk)
