@@ -1,6 +1,6 @@
-# OpenID for node.js
+# OpenID for Node.js
 
-OpenID for node.js is (yes, you guessed it) an OpenID implementation for node.js. 
+OpenID for Node.js is (yes, you guessed it) an OpenID implementation for Node.js. 
 
 Highlights and features include:
 
@@ -16,13 +16,11 @@ The library can be [reviewed and retrieved from GitHub](http://github.com/havard
 
 If you use [`npm`](http://npmjs.org), simply do `npm install openid`.
 
-Otherwise, you can grab the code from [GitHub](https://github.com/havard/node-openid) 
-and 
+Otherwise, you can grab the code from [GitHub](https://github.com/havard/node-openid).
 
 ## Examples
 
-Instead of walking through step-by-step, here's a very simple server 
-using OpenID for node.js for authentication:
+Here's a very simple server using OpenID for Node.js for authentication:
 
 ```javascript
 var openid = require('openid');
@@ -93,16 +91,16 @@ var server = require('http').createServer(
 server.listen(80);
 ```
 
-A more elaborate example including utilizing extensions can be found in `sample.js` in the GitHub repository.
+A more elaborate example including extensions can be found in `sample.js` in the GitHub repository.
 
 ## Supported Extensions
 This library comes with built-in support for the following OpenID extensions:
 
- - The Simple Registration (SREG) 1.1 extension is implemented as `openid.SimpleRegistration`
- - The Attribute Exchange (AX) 1.0 extension is implemented as `openid.AttributeExchange`
- - The OAuth 1.0 extension is implemented as `openid.OAuthHybrid`
- - The User Interface 1.0 extension is implemented as `openid.UserInterface`
- - The Provider Authentication Policy Extension 1.0 (PAPE) as `openid.pape`
+ - The Simple Registration (SREG) 1.1 extension is implemented as `openid.SimpleRegistration`.
+ - The Attribute Exchange (AX) 1.0 extension is implemented as `openid.AttributeExchange`.
+ - The OAuth 1.0 extension is implemented as `openid.OAuthHybrid`.
+ - The User Interface 1.0 extension is implemented as `openid.UserInterface`.
+ - The Provider Authentication Policy Extension 1.0 (PAPE) is implemented as `openid.pape`.
 
 ## Storing association state
 
@@ -137,7 +135,7 @@ requests go through a proxy server, by using the following environment variables
 
 ## License
 
-OpenID for node.js is licensed under the MIT license. See LICENSE for further details. 
+OpenID for Node.js is licensed under the MIT license. See LICENSE for further details. 
 The libary includes bigint functionality released by Tom Wu under the BSD license, 
 and Base64 functions released by Nick Galbreath under the MIT license. Please see 
 `lib/bigint.js` and `lib/base64.js` for the details of the licenses for these functions.
