@@ -614,7 +614,17 @@ var _resolveHostMeta = function(identifier, strict, callback, fallBackToProxy)
       }
       else
       {
-        _parseHostMeta(data, callback);
+        //Attempt to parse the data but if this fails it may be because
+        //the response to hostMetaUrl was some other http/html resource.
+        //Therefore fallback to the proxy if no providers are found.
+        _parseHostMeta(data, function(providers){
+          if((providers == null || providers.length == 0) && !fallBackToProxy && !strict){
+            _resolveHostMeta(identifier, strict, callback, true);
+          }
+          else{
+            callback(providers);
+          }
+        });
       }
     });
   }
