@@ -454,7 +454,7 @@ var _parseHtml = function(htmlUrl, html, callback, hops, params)
   var metaUrl = _matchMetaTag(html);
   if(metaUrl != null)
   {
-    return _resolveXri(metaUrl, callback, hops + 1);
+    return _resolveXri(metaUrl, callback, hops + 1, params);
   }
 
   var provider = _matchLinkTag(html, 'openid2.provider');
