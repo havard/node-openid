@@ -449,7 +449,7 @@ var _matchLinkTag = function(html, rel)
   return href[1];
 }
 
-var _parseHtml = function(htmlUrl, html, callback, hops)
+var _parseHtml = function(htmlUrl, html, callback, hops, params)
 {
   var metaUrl = _matchMetaTag(html);
   if(metaUrl != null)
@@ -513,7 +513,7 @@ var _resolveXri = function(xriUrl, callback, hops, params)
     return callback(null);
   }
 
-  _get(xriUrl, params, function(data, headers, statusCode)
+  _get(xriUrl, null function(data, headers, statusCode)
   {
     if(statusCode != 200)
     {
@@ -523,7 +523,7 @@ var _resolveXri = function(xriUrl, callback, hops, params)
     var xrdsLocation = headers['x-xrds-location'];
     if(_isDef(xrdsLocation))
     {
-      _get(xrdsLocation, null, function(data, headers, statusCode)
+      _get(xrdsLocation, params, function(data, headers, statusCode)
       {
         if(statusCode != 200 || data == null)
         {
@@ -546,13 +546,13 @@ var _resolveXri = function(xriUrl, callback, hops, params)
       }
       else
       {
-        return _resolveHtml(xriUrl, callback, hops + 1, data);
+        return _resolveHtml(xriUrl, callback, hops + 1, data, params);
       }
     }
   });
 }
 
-var _resolveHtml = function(identifier, callback, hops, data)
+var _resolveHtml = function(identifier, callback, hops, data, params)
 {
   if(!hops)
   {
@@ -565,7 +565,7 @@ var _resolveHtml = function(identifier, callback, hops, data)
 
   if(data == null)
   {
-    _get(identifier, null, function(data, headers, statusCode)
+    _get(identifier, params, function(data, headers, statusCode)
     {
       if(statusCode != 200 || data == null)
       {
@@ -573,13 +573,13 @@ var _resolveHtml = function(identifier, callback, hops, data)
       }
       else
       {
-        _parseHtml(identifier, data, callback, hops + 1);
+        _parseHtml(identifier, data, callback, hops + 1,params);
       }
     });
   }
   else
   {
-    _parseHtml(identifier, data, callback, hops);
+    _parseHtml(identifier, data, callback, hops,params);
   }
 
 }
