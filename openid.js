@@ -39,13 +39,14 @@ var _discoveries = {};
 
 var openid = exports;
 
-openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions)
+openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions,googleHostedDomain)
 {
   this.returnUrl = returnUrl;
   this.realm = realm || null;
   this.stateless = stateless;
   this.strict = strict;
   this.extensions = extensions;
+  this.hd = googleHostedDomain;
 }
 
 openid.RelyingParty.prototype.authenticate = function(identifier, immediate, callback)
@@ -501,7 +502,7 @@ var _parseHostMeta = function(hostMeta, callback)
   }
 }
 
-var _resolveXri = function(xriUrl, callback, hops)
+var _resolveXri = function(xriUrl, callback, hops, params)
 {
   if(!hops)
   {
@@ -512,7 +513,7 @@ var _resolveXri = function(xriUrl, callback, hops)
     return callback(null);
   }
 
-  _get(xriUrl, null, function(data, headers, statusCode)
+  _get(xriUrl, params, function(data, headers, statusCode)
   {
     if(statusCode != 200)
     {
@@ -643,6 +644,13 @@ openid.discover = function(identifier, strict, callback)
     identifier = 'https://xri.net/' + identifier + '?_xrd_r=application/xrds%2Bxml';
   }
 
+  var paramaters = null;
+  if (this.hd) {
+    paramaters = {
+      "hd":this.hd
+    };
+  }
+
   // Try XRDS/Yadis discovery
   _resolveXri(identifier, function(providers)
   {
@@ -677,7 +685,7 @@ openid.discover = function(identifier, strict, callback)
       }
       callback(null, providers);
     }
-  });
+  },null,paramaters);
 }
 
 var _createDiffieHellmanKeyExchange = function(algorithm)
