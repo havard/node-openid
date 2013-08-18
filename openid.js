@@ -513,7 +513,7 @@ var _resolveXri = function(xriUrl, callback, hops, params)
     return callback(null);
   }
 
-  _get(xriUrl, null function(data, headers, statusCode)
+  _get(xriUrl, null, function(data, headers, statusCode)
   {
     if(statusCode != 200)
     {
