@@ -1,11 +1,11 @@
-{ "name": "openid",
+﻿{ "name": "openid",
   "description": "OpenID 1.1/2.0 library for node.js",
   "keywords": [ "openid", "auth", "authentication", "identity", "identifier", "relying", "party", "1.1", "2.0", "library" ],
   "author": { 
     "name": "Håvard Stranden",
     "email": "havard.stranden@gmail.com",
     "web": "http://ox.no" },
-  "version": "0.5.2",
+  "version": "0.5.3",
   "repository": {
     "type": "git",
     "url": "http://github.com/havard/node-openid.git" },
