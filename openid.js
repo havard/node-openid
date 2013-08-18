@@ -303,7 +303,7 @@ var _post = function(postUrl, data, callback, redirects)
     {
       if(res.headers.location && --redirects)
       {
-        _post(res.headers.location, params, callback, redirects);
+        _post(res.headers.location, data, callback, redirects);
       }
       else
       {
