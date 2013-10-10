@@ -225,7 +225,8 @@ var _get = function(getUrl, params, callback, redirects)
     port: _isDef(getUrl.port) ? parseInt(getUrl.port, 10) :
       (getUrl.protocol == 'https:' ? 443 : 80),
     headers: { 'Accept' : 'application/xrds+xml,text/html,text/plain,*/*' },
-    path: path
+    path: path,
+    rejectUnauthorized: false
   };
 
   var protocol = _proxyRequest(getUrl.protocol, options);
@@ -286,7 +287,8 @@ var _post = function(postUrl, data, callback, redirects)
       'Content-Type': 'application/x-www-form-urlencoded',
       'Content-Length': encodedData.length
     },
-    method: 'POST'
+    method: 'POST',
+    rejectUnauthorized: false
   };
 
   var protocol = _proxyRequest(postUrl.protocol, options);
