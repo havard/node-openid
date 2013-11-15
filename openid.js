@@ -686,8 +686,6 @@ var _createDiffieHellmanKeyExchange = function(algorithm)
 
   var dh = crypto.createDiffieHellman(defaultPrime, 'base64');
 
-  var randomPrivateKey = crypto.randomBytes(algorithm == 'DH-SHA1' ? 20 : 32);
-  dh.setPrivateKey(randomPrivateKey, 'binary');
   dh.generateKeys();
 
   return dh;
