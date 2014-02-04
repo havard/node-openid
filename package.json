@@ -1,20 +1,46 @@
-{ "name": "openid",
+{
+  "name": "openid",
   "description": "OpenID 1.1/2.0 library for node.js",
-  "keywords": [ "openid", "auth", "authentication", "identity", "identifier", "relying", "party", "1.1", "2.0", "library" ],
-  "author": { 
+  "keywords": [
+    "openid",
+    "auth",
+    "authentication",
+    "identity",
+    "identifier",
+    "relying",
+    "party",
+    "1.1",
+    "2.0",
+    "library"
+  ],
+  "author": {
     "name": "Håvard Stranden",
     "email": "havard.stranden@gmail.com",
-    "web": "http://ox.no" },
+    "web": "http://ox.no"
+  },
   "version": "0.5.5",
   "repository": {
     "type": "git",
-    "url": "http://github.com/havard/node-openid.git" },
+    "url": "http://github.com/havard/node-openid.git"
+  },
   "bugs": "http://github.com/havard/node-openid/issues",
-  "licenses": [{
-    "type" : "MIT",
-    "url" : "http://github.com/havard/node-openid/raw/master/LICENSE" }],
-  "directories" : {
-    "lib" : "./lib" },
-  "main" : "./openid.js",
-  "engines" : [ "node >= 0.6.0" ]
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://github.com/havard/node-openid/raw/master/LICENSE"
+    }
+  ],
+  "directories": {
+    "lib": "./lib"
+  },
+  "main": "./openid.js",
+  "scripts": {
+    "test": "nodeunit test/"
+  },
+  "engines": [
+    "node >= 0.6.0"
+  ],
+  "devDependencies": {
+    "nodeunit": "~0.8.4"
+  }
 }
