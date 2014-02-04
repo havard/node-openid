@@ -23,16 +23,41 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
 
-var assert = require('assert');
+var constants = require('constants');
+var https = require('https');
 var openid = require('../openid');
+var sinon = require('sinon');
+
+// OpenSSL seems to have issues with some servers and causes some of the
+// following test cases to fail in Node 0.10.x unless we disable TLS 1.2. See
+// https://github.com/joyent/node/issues/5360
+https.globalAgent.options.secureOptions = constants.SSL_OP_NO_TLSv1_2;
+
+var clock;
+
+exports.setUp = function(callback)
+{
+  // By default the openid module save association data to memory and sets up
+  // a timer to expire stale entries. This timer prevents the test cases from
+  // exiting so we fake the timer implementation during the test run.
+  clock = sinon.useFakeTimers('setTimeout');
+  callback();
+}
+
+exports.tearDown = function(callback)
+{
+  clock.restore();
+  delete clock;
+  callback();
+}
 
 exports.testResolveFailed = function(test)
 {
   openid.authenticate('example.com', 'http://example.com/verify', null, false, false,
     function(error, url)
     {
-      assert.ok(error);
-      assert.equal(null, url);
+      test.ok(error);
+      test.equal(null, url);
       test.done();
     });
 }
@@ -43,8 +68,8 @@ exports.testEmptyUrl = function(test)
     true,
     function(error, providers)
     {
-      assert.ok(error);
-      assert.equal(null, providers);
+      test.ok(error);
+      test.equal(null, providers);
       test.done();
     });
 }
@@ -55,8 +80,8 @@ exports.testResolveRyanXri = function(test)
     true,
     function(error, providers)
     {
-      assert.ok(!error);
-      assert.equal(2, providers.length);
+      test.ok(!error);
+      test.equal(2, providers.length);
       test.done();
     });
 }
@@ -67,8 +92,8 @@ exports.testResolveRedirect = function(test)
     true,
     function(error, providers)
     {
-      assert.ok(!error);
-      assert.equal(3, providers.length);
+      test.ok(!error);
+      test.equal(3, providers.length);
       test.done();
     });
 }
@@ -79,8 +104,8 @@ exports.testResolveGoogle = function(test)
     true,
     function(error, providers)
     {
-      assert.ok(!error);
-      assert.equal(1, providers.length);
+      test.ok(!error);
+      test.equal(1, providers.length);
       test.done();
     });
 }
@@ -91,27 +116,35 @@ exports.testResolveLiveJournalUser = function(test)
     true,
     function(error, providers)
     {
-      assert.ok(!error);
-      assert.equal(1, providers.length);
+      test.ok(!error);
+      test.equal(1, providers.length);
       test.done();
     });
 }
 
 exports.testResolveOpenID11 = function(test)
 {
-  openid.discover('http://www.superheroofthemonth.com/',
+  // FIXME: relying on a third party for back-level protocol support is brittle.
+  openid.discover('http://pupeno.com/',
     true,
     function(error, providers)
     {
-      assert.ok(!error);
-      assert.notEqual(null, providers);
-      assert.equal(1, providers.length);
+      test.ok(!error);
+      test.notEqual(null, providers);
+      test.equal(1, providers.length);
+      test.equal(providers[0].version, 'http://openid.net/signon/1.1');
       test.done();
     });
 }
 
-function associateTest(url, test)
+function associateTest(url, version, test)
 {
+  if (arguments.length == 2)
+  {
+    test = version;
+    version = null;
+  }
+
   openid.discover(url,
     true,
     function(error, providers)
@@ -119,9 +152,12 @@ function associateTest(url, test)
       var provider = providers[0];
       openid.associate(provider, function(error, result)
       {
-        console.log(error);
-        assert.ok(!error);
-        assert.ok(result.expires_in);
+        test.ok(!error);
+        if (version)
+        {
+          test.equal(provider.version, version);
+        }
+        test.ok(result.expires_in);
         test.done();
       });
     }
@@ -140,7 +176,8 @@ exports.testAssociateWithLiveJournal = function(test)
 
 exports.testAssociateWithOpenID11 = function(test)
 {
-  associateTest('http://www.superheroofthemonth.com/', test);
+  // FIXME: relying on a third party for back-level protocol support is brittle.
+  associateTest('http://pupeno.com/', 'http://openid.net/signon/1.1', test);
 }
 
 exports.testImmediateAuthenticationWithGoogle = function(test)
@@ -148,8 +185,8 @@ exports.testImmediateAuthenticationWithGoogle = function(test)
   openid.authenticate('http://www.google.com/accounts/o8/id', 
   'http://example.com/verify', null, true, false, function(error, url)
   {
-    assert.ok(!error, error);
-    assert.ok(url.indexOf('checkid_immediate') !== -1);
+    test.ok(!error, error);
+    test.ok(url.indexOf('checkid_immediate') !== -1);
     test.done();
   });
 }
@@ -160,8 +197,8 @@ exports.testImmediateAuthenticationWithGoogleAppsForDomains = function(test)
   openid.authenticate('https://www.google.com/accounts/o8/site-xrds?hd=opower.com',
   'http://example.com/verify', null, true, false, function(error, url)
   {
-    assert.ok(!error, error);
-    assert.ok(url.indexOf('checkid_immediate') !== -1);
+    test.ok(!error, error);
+    test.ok(url.indexOf('checkid_immediate') !== -1);
     test.done();
   });
 }
@@ -172,8 +209,8 @@ exports.testSetupAuthenticationWithGoogle = function(test)
   openid.authenticate('http://www.google.com/accounts/o8/id', 
   'http://example.com/verify', null, false, false, function(error, url)
   {
-    assert.ok(!error);
-    assert.ok(url.indexOf('checkid_setup') !== -1);
+    test.ok(!error);
+    test.ok(url.indexOf('checkid_setup') !== -1);
     test.done();
   });
 }
@@ -188,21 +225,8 @@ exports.testAuthenticationWithGoogleUsingRelyingPartyObject = function(test)
       null);
   rp.authenticate('http://www.google.com/accounts/o8/id', false, function(error, url)
   {
-    assert.ok(!error);
-    assert.ok(url.indexOf('checkid_setup') !== -1);
+    test.ok(!error);
+    test.ok(url.indexOf('checkid_setup') !== -1);
     test.done();
   });
-}
-
-exports.testSetupAuthenticationWithMyOpenId = function(test)
-{
-    var called = 0;
-    openid.authenticate('https://swatinem.de', 
-    'http://example.com/verify', null, false, false, function(error, url)
-    {
-      assert.ok(called == 0, "callback executed twice");
-      called++;
-      assert.ok(url.indexOf('checkid_setup') !== -1);
-      test.done();
-    });
 }
