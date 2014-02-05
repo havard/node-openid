@@ -1417,7 +1417,7 @@ openid.UserInterface.prototype.fillResult = function(params, result)
  */
 // TODO: count handling
 
-var attributeMapping = 
+var defaultAttributeMapping = 
 {
     'http://axschema.org/contact/country/home': 'country'
   , 'http://axschema.org/contact/email': 'email'
@@ -1429,12 +1429,13 @@ var attributeMapping =
   , 'http://axschema.org/namePerson': 'fullname'
 };
 
-openid.AttributeExchange = function AttributeExchange(options) 
+openid.AttributeExchange = function AttributeExchange(options, attributeMapping)
 { 
   this.requestParams = {'openid.ns.ax': 'http://openid.net/srv/ax/1.0',
     'openid.ax.mode' : 'fetch_request'};
   var required = [];
   var optional = [];
+  attributeMapping = attributeMapping || defaultAttributeMapping;
   for (var ns in options)
   {
     if (!options.hasOwnProperty(ns)) { continue; }
