@@ -65,8 +65,127 @@ exports.testVerificationUrlUsingRelyingParty = function(test)
   });
 }
 
+exports.testAttributeExchangeRequest = function(test)
+{
+  var ax = new openid.AttributeExchange(),
+      expectedParams = {
+        'openid.ns.ax' : 'http://openid.net/srv/ax/1.0',
+        'openid.ax.mode' : 'fetch_request'
+      }
+  
+  test.deepEqual(ax.requestParams, expectedParams);
+  test.done();
+}
 
-exports.testAttributeExchange = function(test)
+var _aliasMap = function(request)
+{
+  var map = {},
+      regex = /^openid\.ax\.type\.(\w+)$/;
+  
+  for(var key in request)
+  {
+    var matches = key.match(regex);
+    if (matches)
+    {
+      map[request[key]] = matches[1];
+    }
+  }
+  
+  return map;
+}
+
+var _checkAxAttributes = function (options, request, test)
+{
+  var optional = 0,
+      required = 0;
+  
+  test.equal(request.namespace, 'http://openid.net/srv/ax/1.0', 'unexpected namespace');
+  test.equal(request.mode, 'fetch_request', 'unexpected mode');
+  test.equal(Object.keys(request.aliases).length, Object.keys(options).length, 'incorrect number of aliases');
+  for(var attr in options)
+  {
+    var alias = request.aliases[attr],
+        list;
+    
+    if (options[attr] === 'required')
+    {
+      list = request.required;
+      required++;
+    }
+    else
+    {
+      list = request.optional;
+      optional++;
+    }
+    
+    test.ok(alias, attr + ' has no alias');
+    test.ok(list.indexOf(alias) !== -1, 'alias ' + alias + ' not in expected list');
+  }
+  test.equal(request.required.length, required, 'invalid number of required attributes');
+  test.equal(request.optional.length, optional, 'invalid number of optional attributes');
+}
+
+var _parseRequest = function(ax)
+{
+  var parsedRequest = {
+        aliases : _aliasMap(ax.requestParams),
+        mode : ax.requestParams['openid.ax.mode'],
+        namespace : ax.requestParams['openid.ns.ax'],
+        required : [],
+        optional : []
+      };
+  
+  if (ax.requestParams['openid.ax.required'])
+  {
+    parsedRequest.required = ax.requestParams['openid.ax.required'].split(',');
+  }
+  if (ax.requestParams['openid.ax.if_available'])
+  {
+    parsedRequest.optional = ax.requestParams['openid.ax.if_available'].split(',');
+  }
+  
+  return parsedRequest;
+}
+
+exports.testAttributeExchangeOptions = function(test)
+{
+  var options = {
+        'http://axschema.org/contact/email' : 'required',
+        'http://axschema.org/namePerson/friendly' : 'optional',
+        'http://example.com/schema/fullname' : 'required',
+        'http://example.com/schema/gender' : 'optional'
+      },
+      request = _parseRequest(new openid.AttributeExchange(options));
+  
+  test.equal(request.aliases['http://axschema.org/contact/email'], 'email');
+  test.equal(request.aliases['http://axschema.org/namePerson/friendly'], 'nickname');
+  
+  _checkAxAttributes(options, request, test);
+  test.done();
+}
+
+exports.testAttributeExchangeCustomMapping = function(test)
+{
+  var mappings = {
+      'http://axschema.org/namePerson/friendly' : 'friendly',
+      'http://example.com/schema/fullname' : 'fullname'
+    },
+    options = {
+      'http://axschema.org/namePerson/friendly' : 'required',
+      'http://example.com/schema/fullname' : 'required'
+    },
+    request = _parseRequest(new openid.AttributeExchange(options, mappings));
+  
+  for(var ns in mappings)
+  {
+    test.equal(request.aliases[ns], mappings[ns], 'unexpected alias');
+  }
+  
+  _checkAxAttributes(options, request, test);
+  test.done();
+}
+
+exports.testAttributeExchangeResponse = function(test)
 {
   var ax = new openid.AttributeExchange(),
       results = {},
@@ -74,15 +193,19 @@ exports.testAttributeExchange = function(test)
         'openid.ax.type.email' :  'http://axschema.org/contact/email',
         'openid.ax.value.email' : 'fred.example@gmail.com',
         'openid.ax.type.language' : 'http://axschema.org/pref/language',
-        'openid.ax.value.language' : 'english'
+        'openid.ax.value.language' : 'english',
+        'openid.ax.type.custom' : 'http://example.com/schema/custom',
+        'openid.ax.value.custom' : 'custom attribute'
       }
   ax.fillResult(exampleParams, results);
   
   test.notEqual(results['email'], undefined);
   test.notEqual(results['language'], undefined);
+  test.notEqual(results['custom'], undefined);
   
   test.equal('fred.example@gmail.com', results['email']);
   test.equal('english', results['language']);
+  test.equal('custom attribute', results['custom']);
   
   test.done();
 }
