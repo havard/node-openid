@@ -22,7 +22,6 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
-var assert = require('assert');
 var openid = require('../openid');
 
 exports.testVerificationUrl = function(test)
@@ -30,8 +29,8 @@ exports.testVerificationUrl = function(test)
   var times = 0;
   openid.verifyAssertion('http://fu', function(error, result)
   {
-    assert.ok(!times++);
-    assert.ok(!result || !result.authenticated);
+    test.ok(!times++);
+    test.ok(!result || !result.authenticated);
     test.done();
   });
 }
@@ -44,8 +43,8 @@ exports.testVerificationCancel = function(test)
       '&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0',
       function(error, result)
   {
-    assert.ok(!times++);
-    assert.ok(!result || !result.authenticated);
+    test.ok(!times++);
+    test.ok(!result || !result.authenticated);
     test.done();
   });
 }
@@ -61,7 +60,7 @@ exports.testVerificationUrlUsingRelyingParty = function(test)
 
   rp.verifyAssertion('http://fu', function(error, result)
   {
-    assert.ok(!result || !result.authenticated);
+    test.ok(!result || !result.authenticated);
     test.done();
   });
 }
@@ -79,11 +78,11 @@ exports.testAttributeExchange = function(test)
       }
   ax.fillResult(exampleParams, results);
   
-  assert.notEqual(results['email'], undefined);
-  assert.notEqual(results['language'], undefined);
+  test.notEqual(results['email'], undefined);
+  test.notEqual(results['language'], undefined);
   
-  assert.equal('fred.example@gmail.com', results['email']);
-  assert.equal('english', results['language']);
+  test.equal('fred.example@gmail.com', results['email']);
+  test.equal('english', results['language']);
   
   test.done();
 }
@@ -98,9 +97,9 @@ exports.testPape = function(test)
       results = {};
   
   pape.fillResult(exampleParams, results);
-  assert.notEqual(results['auth_time'], undefined);
-  assert.notEqual(results['auth_policies'], undefined);
-  assert.equal(results['auth_policies'], "multi-factor phishing-resistant"); 
+  test.notEqual(results['auth_time'], undefined);
+  test.notEqual(results['auth_policies'], undefined);
+  test.equal(results['auth_policies'], "multi-factor phishing-resistant"); 
   test.done();
 }
 
