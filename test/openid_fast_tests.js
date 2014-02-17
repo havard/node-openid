@@ -77,13 +77,17 @@ exports.testAttributeExchange = function(test)
         'openid.ax.value.language' : 'english'
       }
   ax.fillResult(exampleParams, results);
-  
+
   test.notEqual(results['email'], undefined);
+  test.notEqual(results['http://axschema.org/contact/email'], undefined);
   test.notEqual(results['language'], undefined);
-  
+  test.notEqual(results['http://axschema.org/pref/language'], undefined);
+
   test.equal('fred.example@gmail.com', results['email']);
+  test.equal('fred.example@gmail.com', results['http://axschema.org/contact/email']);
   test.equal('english', results['language']);
-  
+  test.equal('english', results['http://axschema.org/pref/language']);
+
   test.done();
 }
 
@@ -95,11 +99,11 @@ exports.testPape = function(test)
       };
   var pape = new openid.PAPE(),
       results = {};
-  
+
   pape.fillResult(exampleParams, results);
   test.notEqual(results['auth_time'], undefined);
   test.notEqual(results['auth_policies'], undefined);
-  test.equal(results['auth_policies'], "multi-factor phishing-resistant"); 
+  test.equal(results['auth_policies'], "multi-factor phishing-resistant");
   test.done();
 }
 
