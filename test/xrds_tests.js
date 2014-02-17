@@ -23,7 +23,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
 
-var assert = require('assert');
 var xrds = require('../lib/xrds');
 
 exports.testXrdsSampleParse = function(test)
@@ -32,7 +31,7 @@ exports.testXrdsSampleParse = function(test)
 
   var services = xrds.parse(sample);
   
-  assert.equal(3, services.length); // Won't find service with self-closing type (OK)
+  test.equal(3, services.length); // Won't find service with self-closing type (OK)
   test.done();
 }
 
@@ -42,6 +41,6 @@ exports.testXrdsSampleWithCertificateParse = function(test)
 
   var services = xrds.parse(sample);
 
-  assert.equal(6, services.length); // Won't find x509 service due to no URI
+  test.equal(6, services.length); // Won't find x509 service due to no URI
   test.done();
 }
