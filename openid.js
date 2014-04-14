@@ -1143,63 +1143,68 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
         return callback({ message: 'No OpenID provider was discovered for the asserted claimed identifier' });
       }
 
-      for(var i = 0; i < providers.length; ++i)
-      {
-        var provider = providers[i];
-        if(!provider.version || provider.version.indexOf(params['openid.ns']) !== 0)
-        {
-          continue;
-        }
-        return _verifyAssertionAgainstProvider(provider, params, stateless, extensions, callback);
-      }
-
+      _verifyAssertionAgainstProviders(providers, params, stateless, extensions, callback);
+      
       return callback({ message: 'No providers were discovered for the claimed identifier' });
     });
   });
 }
 
-var _verifyAssertionAgainstProvider = function(provider, params, stateless, extensions, callback)
+var _verifyAssertionAgainstProviders = function(providers, params, stateless, extensions, callback)
 {
-  if(provider.version.indexOf('2.0') !== -1)
+  for(var i = 0; i < providers.length; ++i)
   {
-    var endpoint = params['openid.op_endpoint'];
-    if (provider.endpoint != endpoint) 
+    var provider = providers[i];
+    if(!provider.version || provider.version.indexOf(params['openid.ns']) !== 0)
     {
-      return callback({ message: 'OpenID provider endpoint in assertion response does not match discovered OpenID provider endpoint' });
+      continue;
     }
-    if(provider.claimedIdentifier) {
-      var claimedIdentifier = _getCanonicalClaimedIdentifier(params['openid.claimed_id']);
-      if(provider.claimedIdentifier != claimedIdentifier) {
-        return callback({ message: 'Claimed identifier in assertion response does not match discovered claimed identifier' });
-      }
-    }
-  }
-  if(provider.localIdentifier && provider.localIdentifier != params['openid.identity'])
-  {
-    return callback({ message: 'Identity in assertion response does not match discovered local identifier' });
-  }
 
-  _checkSignature(params, provider, stateless, function(error, result)
-  {
-    if(error)
+    if(provider.version.indexOf('2.0') !== -1)
     {
-      return callback(error);
-    }
-    if(extensions && result.authenticated)
-    {
-      for(var ext in extensions)
+      var endpoint = params['openid.op_endpoint'];
+      if (provider.endpoint != endpoint) 
       {
-        if (!extensions.hasOwnProperty(ext))
-        { 
-          continue; 
+        continue;
+      }
+      if(provider.claimedIdentifier) {
+        var claimedIdentifier = _getCanonicalClaimedIdentifier(params['openid.claimed_id']);
+        if(provider.claimedIdentifier != claimedIdentifier) {
+          return callback({ message: 'Claimed identifier in assertion response does not match discovered claimed identifier' });
         }
-        var instance = extensions[ext];
-        instance.fillResult(params, result);
       }
     }
 
-    return callback(null, result);
-  });
+    console.log('Using provider: ' + JSON.stringify(provider));
+    if(provider.localIdentifier && provider.localIdentifier != params['openid.identity'])
+    {
+      return callback({ message: 'Identity in assertion response does not match discovered local identifier' });
+    }
+
+    _checkSignature(params, provider, stateless, function(error, result)
+    {
+      if(error)
+      {
+        return callback(error);
+      }
+      if(extensions && result.authenticated)
+      {
+        for(var ext in extensions)
+        {
+          if (!extensions.hasOwnProperty(ext))
+          { 
+            continue; 
+          }
+          var instance = extensions[ext];
+          instance.fillResult(params, result);
+        }
+      }
+
+      return callback(null, result);
+    });
+  }
+
+  callback({ message: 'No valid providers were discovered for the asserted claimed identifier' });
 }
 
 var _checkSignature = function(params, provider, stateless, callback)
