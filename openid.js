@@ -238,8 +238,12 @@ var _get = function(getUrl, params, callback, redirects)
       data += chunk;
     });
 
+    var isDone = false;
     var done = function()
     {
+      if (isDone) return;
+      isDone = true;
+
       if(res.headers.location && --redirects)
       {
         var redirectUrl = res.headers.location;
@@ -299,8 +303,12 @@ var _post = function(postUrl, data, callback, redirects)
       data += chunk;
     });
 
+    var isDone = false;
     var done = function()
     {
+      if (isDone) return;
+      isDone = true;
+
       if(res.headers.location && --redirects)
       {
         _post(res.headers.location, data, callback, redirects);
