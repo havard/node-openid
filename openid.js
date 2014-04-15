@@ -1173,13 +1173,12 @@ var _verifyAssertionAgainstProviders = function(providers, params, stateless, ex
       }
     }
 
-    console.log('Using provider: ' + JSON.stringify(provider));
     if(provider.localIdentifier && provider.localIdentifier != params['openid.identity'])
     {
       return callback({ message: 'Identity in assertion response does not match discovered local identifier' });
     }
 
-    _checkSignature(params, provider, stateless, function(error, result)
+    return _checkSignature(params, provider, stateless, function(error, result)
     {
       if(error)
       {
