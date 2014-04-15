@@ -1144,8 +1144,6 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
       }
 
       _verifyAssertionAgainstProviders(providers, params, stateless, extensions, callback);
-      
-      return callback({ message: 'No providers were discovered for the claimed identifier' });
     });
   });
 }
