@@ -1134,7 +1134,7 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
 
     if(provider)
     {
-      return _verifyAssertionAgainstProvider(provider, params, stateless, extensions, callback);
+      return _verifyAssertionAgainstProviders([provider], params, stateless, extensions, callback);
     }
     else if (useLocalIdentifierAsKey) {
       return callback({ message: 'OpenID 1.0/1.1 response received, but no information has been discovered about the provider. It is likely that this is a fraudulent authentication response.' });
