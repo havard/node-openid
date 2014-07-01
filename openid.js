@@ -187,7 +187,7 @@ var _proxyRequest = function(protocol, options)
 
       if (! options.headers) options.headers = {};
 
-      var targetHostAndPort = targetHost + ':' + options.port;
+      var targetHostAndPort = (isNaN(options.port)) ? targetHost : targetHost + ':' + options.port;
 
       options.host = proxyHostname;
       options.port = proxyPort;
