@@ -40,6 +40,10 @@
   "engines": [
     "node >= 0.6.0"
   ],
+  "dependencies" :
+  {
+	  "request" : "~2.36.0"
+  },
   "devDependencies": {
     "nodeunit": "~0.8.4",
     "sinon": "~1.8.1"
