@@ -1423,7 +1423,6 @@ openid.UserInterface.prototype.fillResult = function(params, result)
  *  - http://www.axschema.org/types/ 
  *  - http://code.google.com/intl/en-US/apis/accounts/docs/OpenID.html#Parameters
  */
-// TODO: count handling
 
 var attributeMapping = 
 {
@@ -1481,7 +1480,7 @@ openid.AttributeExchange = function AttributeExchange(options)
 openid.AttributeExchange.prototype.fillResult = function(params, result)
 {
   var extension = _getExtensionAlias(params, 'http://openid.net/srv/ax/1.0') || 'ax';
-  var regex = new RegExp('^openid\\.' + extension + '\\.(value|type)\\.(\\w+)$');
+  var regex = new RegExp('^openid\\.' + extension + '\\.(value|type|count)\\.(\\w+)$');
   var aliases = {};
   var values = {};
   for (var k in params)
@@ -1492,13 +1491,29 @@ openid.AttributeExchange.prototype.fillResult = function(params, result)
     {
       continue;
     }
+
     if (matches[1] == 'type')
     {
       aliases[params[k]] = matches[2];
     }
+    else if (matches[1] == 'count')
+    {
+        continue;
+    }
     else
     {
-      values[matches[2]] = params[k];
+      if (matches[3])
+      {
+        //matches multi-value, aka "count" aliases
+        values[matches[2]] = values[matches[2]] || [];
+        values[matches[2]][matches[4]-1] = params[k];
+      }
+      else
+      {
+        //matches single-value aliases
+        values[matches[2]] = params[k];
+      }
+      
     }
   }
   for (var ns in aliases) 
