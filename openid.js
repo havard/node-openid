@@ -1022,17 +1022,23 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions,
   {
     if(requestOrUrl.method == 'POST') {
       if(requestOrUrl.headers['content-type'] == 'application/x-www-form-urlencoded') {
-        // POST response received
-        var data = '';
-        
-        requestOrUrl.on('data', function(chunk) {
-          data += chunk;
-        });
-        
-        requestOrUrl.on('end', function() {
-          var params = querystring.parse(data);
-          return _verifyAssertionData(params, callback, stateless, extensions, strict);
-        });
+
+        if (requestOrUrl.complete) {
+          return _verifyAssertionData(requestOrUrl.body, callback, stateless, extensions, strict);
+        } else {
+
+          // POST response received
+          var data = '';
+
+          requestOrUrl.on('data', function (chunk) {
+            data += chunk;
+          });
+
+          requestOrUrl.on('end', function () {
+            var params = querystring.parse(data);
+            return _verifyAssertionData(params, callback, stateless, extensions, strict);
+          });
+        }
       }
       else {
         return callback({ message: 'Invalid POST response from OpenID provider' });
