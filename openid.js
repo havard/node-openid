@@ -1021,7 +1021,7 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions,
   if(typeof(requestOrUrl) !== typeof(''))
   {
     if(requestOrUrl.method == 'POST') {
-      if(requestOrUrl.headers['content-type'] == 'application/x-www-form-urlencoded') {
+      if((requestOrUrl.headers['content-type'] || '').toLowerCase().indexOf('application/x-www-form-urlencoded') === 0) {
         // POST response received
         var data = '';
         
