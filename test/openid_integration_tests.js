@@ -86,18 +86,6 @@ exports.testResolveRyanXri = function(test)
     });
 }
 
-exports.testResolveRedirect = function(test)
-{
-  openid.discover('http://www.myopenid.com/xrds?username=swatinem.myopenid.com',
-    true,
-    function(error, providers)
-    {
-      test.ok(!error);
-      test.equal(3, providers.length);
-      test.done();
-    });
-}
-
 exports.testResolveGoogle = function(test)
 {
   openid.discover('http://www.google.com/accounts/o8/id',
@@ -177,7 +165,7 @@ exports.testAssociateWithLiveJournal = function(test)
 exports.testAssociateWithOpenID11 = function(test)
 {
   // FIXME: relying on a third party for back-level protocol support is brittle.
-  associateTest('http://pupeno.com/', 'http://openid.net/signon/1.1', test);
+  associateTest('https://matt.wordpress.com/', 'http://openid.net/signon/1.1', test);
 }
 
 exports.testImmediateAuthenticationWithGoogle = function(test)
