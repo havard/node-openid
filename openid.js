@@ -735,7 +735,7 @@ openid.associate = function(provider, callback, strict, algorithm)
     {
       if(algorithm == 'DH-SHA1')
       {
-        if(strict && url.protocol != 'https:')
+        if(strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0)
         {
           return callback({ message: 'Channel is insecure and no encryption method is supported by provider' }, null);
         }
@@ -746,7 +746,7 @@ openid.associate = function(provider, callback, strict, algorithm)
       }
       else if(algorithm == 'no-encryption-256')
       {
-        if(strict && url.protocol != 'https:')
+        if(strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0)
         {
           return callback('Channel is insecure and no encryption method is supported by provider', null);
         }
