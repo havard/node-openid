@@ -547,7 +547,7 @@ var _resolveXri = function(xriUrl, callback, hops)
       var contentType = headers['content-type'];
       // text/xml is not compliant, but some hosting providers refuse header
       // changes, so text/xml is encountered
-      if(contentType.indexOf('application/xrds+xml') === 0 || contentType.indexOf('text/xml') === 0)
+      if(contentType && (contentType.indexOf('application/xrds+xml') === 0 || contentType.indexOf('text/xml') === 0))
       {
         return callback(_parseXrds(xriUrl, data));
       }
