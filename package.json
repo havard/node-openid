@@ -18,7 +18,7 @@
     "email": "havard.stranden@gmail.com",
     "web": "http://ox.no"
   },
-  "version": "0.5.9",
+  "version": "0.5.10",
   "repository": {
     "type": "git",
     "url": "http://github.com/havard/node-openid.git"
@@ -41,7 +41,8 @@
     "node >= 0.6.0"
   ],
   "devDependencies": {
-    "nodeunit": "~0.8.4",
-    "sinon": "~1.8.1"
+    "nodeunit": "~0.9.1",
+    "sinon": "~1.13.0",
+    "nock": "~1.1.0"
   }
 }
