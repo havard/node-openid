@@ -876,7 +876,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
 
     var providerIndex = -1;
 
-    var chooseProvider = function successOrNext(error, authUrl)
+    (function successOrNext(error, authUrl)
     {
       if(!error && authUrl)
       {
@@ -932,9 +932,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
         });
         
       }
-    };
-
-    chooseProvider();
+    })();
   });
 }
 
