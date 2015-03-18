@@ -876,7 +876,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
 
     var providerIndex = -1;
 
-    var chooseProvider = function successOrNext(error, authUrl)
+    (function chooseProvider(error, authUrl)
     {
       if(!error && authUrl)
       {
@@ -900,8 +900,9 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
         {
           return callback(null, authUrl);
         }
-        else {
-          successOrNext({ message: 'OpenID 1.0/1.1 provider cannot be used without a claimed identifier' });
+        else
+        {
+          chooseProvider({ message: 'OpenID 1.0/1.1 provider cannot be used without a claimed identifier' });
         }
       }
       if(++providerIndex >= providers.length)
@@ -913,7 +914,7 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
       if(stateless)
       {
         _requestAuthentication(currentProvider, null, returnUrl, 
-          realm, immediate, extensions || {}, successOrNext);
+          realm, immediate, extensions || {}, chooseProvider);
       }
 
       else
@@ -922,19 +923,17 @@ openid.authenticate = function(identifier, returnUrl, realm, immediate, stateles
         {
           if(error || !answer || answer.error)
           {
-            successOrNext(error || answer.error, null);
+            chooseProvider(error || answer.error, null);
           }
           else
           {
             _requestAuthentication(currentProvider, answer.assoc_handle, returnUrl, 
-              realm, immediate, extensions || {}, successOrNext);
+              realm, immediate, extensions || {}, chooseProvider);
           }
         });
         
       }
-    };
-
-    chooseProvider();
+    })();
   });
 }
 
