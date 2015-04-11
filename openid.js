@@ -1519,7 +1519,7 @@ openid.AttributeExchange.prototype.fillResult = function(params, result)
           if (!values[matches[2]]) {
             values[matches[2]] = [];
           }
-          values[matches[2]][matches[4]-1] = params[k];
+          values[matches[2]][count-1] = params[k];
         }
       }
       else
