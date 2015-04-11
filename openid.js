@@ -1480,8 +1480,9 @@ openid.AttributeExchange = function AttributeExchange(options)
 openid.AttributeExchange.prototype.fillResult = function(params, result)
 {
   var extension = _getExtensionAlias(params, 'http://openid.net/srv/ax/1.0') || 'ax';
-  var regex = new RegExp('^openid\\.' + extension + '\\.(value|type)\\.(\\w+)$');
+  var regex = new RegExp('^openid\\.' + extension + '\\.(value|type|count)\\.(\\w+)(\\.(\\d+)){0,1}$');
   var aliases = {};
+  var counters = {};
   var values = {};
   for (var k in params)
   {
@@ -1495,9 +1496,37 @@ openid.AttributeExchange.prototype.fillResult = function(params, result)
     {
       aliases[params[k]] = matches[2];
     }
+    else if (matches[1] == 'count')
+    {
+      //counter sanitization
+      var count = parseInt(params[k], 10);
+
+      // arbitrary limit of 1000 values, further discuss is needed
+      counters[matches[2]] = (count < 1000) ? count : 1000 ;
+    }
     else
     {
-      values[matches[2]] = params[k];
+      if (matches[3])
+      {
+        //matches multi-value, aka "count" aliases
+
+        //counter sanitization
+        var count = parseInt(matches[4], 10);
+
+        // "in bounds" verification
+        if (count > 0 && count <= (counters[matches[2]] || 1000))
+        {
+          if (!values[matches[2]]) {
+            values[matches[2]] = [];
+          }
+          values[matches[2]][matches[4]-1] = params[k];
+        }
+      }
+      else
+      {
+        //matches single-value aliases
+        values[matches[2]] = params[k];
+      }
     }
   }
   for (var ns in aliases) 
