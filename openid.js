@@ -37,6 +37,8 @@ var convert = require('./lib/convert'),
 var _associations = {};
 var _discoveries = {};
 
+var AX_MAX_VALUES_COUNT = 1000;
+
 var openid = exports;
 
 openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions)
@@ -1501,8 +1503,8 @@ openid.AttributeExchange.prototype.fillResult = function(params, result)
       //counter sanitization
       var count = parseInt(params[k], 10);
 
-      // arbitrary limit of 1000 values, further discuss is needed
-      counters[matches[2]] = (count < 1000) ? count : 1000 ;
+      // values number limitation (potential attack by overflow ?)
+      counters[matches[2]] = (count < AX_MAX_VALUES_COUNT) ? count : AX_MAX_VALUES_COUNT ;
     }
     else
     {
@@ -1514,7 +1516,7 @@ openid.AttributeExchange.prototype.fillResult = function(params, result)
         var count = parseInt(matches[4], 10);
 
         // "in bounds" verification
-        if (count > 0 && count <= (counters[matches[2]] || 1000))
+        if (count > 0 && count <= (counters[matches[2]] || AX_MAX_VALUES_COUNT))
         {
           if (!values[matches[2]]) {
             values[matches[2]] = [];
