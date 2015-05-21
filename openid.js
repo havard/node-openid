@@ -1424,7 +1424,6 @@ openid.UserInterface.prototype.fillResult = function(params, result)
  *  - http://www.axschema.org/types/ 
  *  - http://code.google.com/intl/en-US/apis/accounts/docs/OpenID.html#Parameters
  */
-// TODO: count handling
 
 var attributeMapping = 
 {
