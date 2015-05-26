@@ -1160,7 +1160,7 @@ var _verifyAssertionAgainstProviders = function(providers, params, stateless, ex
   for(var i = 0; i < providers.length; ++i)
   {
     var provider = providers[i];
-    if(!!params['openid.ns'] && !provider.version || provider.version.indexOf(params['openid.ns']) !== 0)
+    if(!!params['openid.ns'] && (!provider.version || provider.version.indexOf(params['openid.ns']) !== 0))
     {
       continue;
     }
