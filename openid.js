@@ -1160,12 +1160,12 @@ var _verifyAssertionAgainstProviders = function(providers, params, stateless, ex
   for(var i = 0; i < providers.length; ++i)
   {
     var provider = providers[i];
-    if(!provider.version || provider.version.indexOf(params['openid.ns']) !== 0)
+    if(!!params['openid.ns'] && !provider.version || provider.version.indexOf(params['openid.ns']) !== 0)
     {
       continue;
     }
 
-    if(provider.version.indexOf('2.0') !== -1)
+    if(!!provider.version && provider.version.indexOf('2.0') !== -1)
     {
       var endpoint = params['openid.op_endpoint'];
       if (provider.endpoint != endpoint) 
@@ -1180,7 +1180,7 @@ var _verifyAssertionAgainstProviders = function(providers, params, stateless, ex
       }
     }
 
-    if(provider.localIdentifier && provider.localIdentifier != params['openid.identity'])
+    if(!!provider.localIdentifier && provider.localIdentifier != params['openid.identity'])
     {
       return callback({ message: 'Identity in assertion response does not match discovered local identifier' });
     }
