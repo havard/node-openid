@@ -181,7 +181,14 @@ var _proxyRequest = function(protocol, options)
   */
   var targetHost = options.host;
   var newProtocol = protocol;
+  var noProxyEnv = process.env['NO_PROXY'] || '';
+  var noProxy = noProxyEnv.split(',');
   if (!targetHost) return;
+  for (var entry in noProxy) {
+    if (noProxy[entry] && targetHost.match(noProxy[entry] + '$')) {
+      return protocol;
+    }
+  }
   var updateOptions = function (envPrefix) {
     var proxyHostname = process.env[envPrefix + '_PROXY_HOST'].trim();
     var proxyPort = parseInt(process.env[envPrefix + '_PROXY_PORT'], 10);
