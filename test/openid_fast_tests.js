@@ -74,7 +74,12 @@ exports.testAttributeExchange = function(test)
         'openid.ax.type.email' :  'http://axschema.org/contact/email',
         'openid.ax.value.email' : 'fred.example@gmail.com',
         'openid.ax.type.language' : 'http://axschema.org/pref/language',
-        'openid.ax.value.language' : 'english'
+        'openid.ax.value.language' : 'english',
+        'openid.ax.type.phones' : 'http://axschema.org/contact/phone/cell',
+        'openid.ax.count.phones' : '2',
+        'openid.ax.value.phones.1' : '+1 (555) 555-5555',
+        'openid.ax.value.phones.2' : '+33 6 55 55 55 55',
+        'openid.ax.value.phones.3' : '+46 5 5555 5555',
       }
   ax.fillResult(exampleParams, results);
 
@@ -82,11 +87,17 @@ exports.testAttributeExchange = function(test)
   test.notEqual(results['http://axschema.org/contact/email'], undefined);
   test.notEqual(results['language'], undefined);
   test.notEqual(results['http://axschema.org/pref/language'], undefined);
+  test.notEqual(results['phones'], undefined);
+  test.notEqual(results['http://axschema.org/contact/phone/cell'], undefined);
 
   test.equal('fred.example@gmail.com', results['email']);
   test.equal('fred.example@gmail.com', results['http://axschema.org/contact/email']);
   test.equal('english', results['language']);
   test.equal('english', results['http://axschema.org/pref/language']);
+  test.equal(results['phones'].length, 2);
+  test.equal('+1 (555) 555-5555', results['phones'][0]);
+  test.equal('+33 6 55 55 55 55', results['phones'][1]);
+  test.equal(undefined, results['phones'][2]);
 
   test.done();
 }
