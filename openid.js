@@ -28,8 +28,7 @@
 
 var convert = require('./lib/convert'),
     crypto = require('crypto'),
-    http = require('http'),
-    https = require('https'),
+    request = require('request'),
     querystring = require('querystring'),
     url = require('url'),
     xrds = require('./lib/xrds');
@@ -161,179 +160,37 @@ var _buildUrl = function(theUrl, params)
   return url.format(theUrl);
 }
 
-var _proxyRequest = function(protocol, options)
-{
-  /* 
-  If process.env['HTTP_PROXY_HOST'] and the env variable `HTTP_PROXY_POST`
-  are set, make sure path and the header Host are set to target url.
-
-  Similarly, `HTTPS_PROXY_HOST` and `HTTPS_PROXY_PORT` can be used
-  to proxy HTTPS traffic.
-
-  Proxies Example:
-      export HTTP_PROXY_HOST=localhost
-      export HTTP_PROXY_PORT=8080
-      export HTTPS_PROXY_HOST=localhost
-      export HTTPS_PROXY_PORT=8442
-
-  Function returns protocol which should be used for network request, one of
-  http: or https:
-  */
-  var targetHost = options.host;
-  var newProtocol = protocol;
-  if (!targetHost) return;
-  var updateOptions = function (envPrefix) {
-    var proxyHostname = process.env[envPrefix + '_PROXY_HOST'].trim();
-    var proxyPort = parseInt(process.env[envPrefix + '_PROXY_PORT'], 10);
-    if (proxyHostname.length > 0 && ! isNaN(proxyPort)) {
-
-      if (! options.headers) options.headers = {};
-
-      var targetHostAndPort = targetHost + ':' + options.port;
-
-      options.host = proxyHostname;
-      options.port = proxyPort;
-      options.path = protocol + '//' + targetHostAndPort + options.path;
-      options.headers['Host'] = targetHostAndPort;
-    }
+var _get = function (getUrl, params, callback, redirects) {
+  var options = {
+    url: getUrl,
+    maxRedirects: redirects || 5,
+    qs: params,
+    headers: { 'Accept' : 'application/xrds+xml,text/html,text/plain,*/*' }
   };
-  if ('https:' === protocol &&
-      !! process.env['HTTPS_PROXY_HOST'] &&
-      !! process.env['HTTPS_PROXY_PORT']) {
-    updateOptions('HTTPS');
-    // Proxy server request must be done via http... it is responsible for
-    // Making the https request...    
-    newProtocol = 'http:';
-  } else if (!! process.env['HTTP_PROXY_HOST'] &&
-             !! process.env['HTTP_PROXY_PORT']) {
-    updateOptions('HTTP');
-  }
-  return newProtocol;
-}
-
-var _get = function(getUrl, params, callback, redirects)
-{
-  redirects = redirects || 5;
-  getUrl = url.parse(_buildUrl(getUrl, params));
-
-  var path = getUrl.pathname || '/';
-  if(getUrl.query)
-  {
-    path += '?' + getUrl.query;
-  }
-  var options = 
-  {
-    host: getUrl.hostname,
-    port: _isDef(getUrl.port) ? parseInt(getUrl.port, 10) :
-      (getUrl.protocol == 'https:' ? 443 : 80),
-    headers: { 'Accept' : 'application/xrds+xml,text/html,text/plain,*/*' },
-    path: path
-  };
-
-  var protocol = _proxyRequest(getUrl.protocol, options);
-
-  (protocol == 'https:' ? https : http).get(options, function(res)
-  {
-    var data = '';
-    res.on('data', function(chunk)
-    {
-      data += chunk;
-    });
-
-    var isDone = false;
-    var done = function()
-    {
-      if (isDone) return;
-      isDone = true;
-
-      if(res.headers.location && --redirects)
-      {
-        var redirectUrl = res.headers.location;
-        if(redirectUrl.indexOf('http') !== 0)
-        {
-          redirectUrl = getUrl.protocol + '//' + getUrl.hostname + ':' + options.port + (redirectUrl.indexOf('/') === 0 ? redirectUrl : '/' + redirectUrl);
-        }
-        _get(redirectUrl, params, callback, redirects);
-      }
-      else
-      {
-        callback(data, res.headers, res.statusCode);
-      }
+  request.get(options, function (error, response, body) {
+    if (error) {
+      callback(error);
+    } else {
+      callback(body, response.headers, response.statusCode);
     }
-
-    res.on('end', function() { done(); });
-    res.on('close', function() { done(); });
-  }).on('error', function(error) 
-  {
-    return callback(error);
   });
-}
+};
 
-var _post = function(postUrl, data, callback, redirects)
-{
-  redirects = redirects || 5;
-  postUrl = url.parse(postUrl);
-
-  var path = postUrl.pathname || '/';
-  if(postUrl.query)
-  {
-    path += '?' + postUrl.query;
-  }
-
-  var encodedData = _encodePostData(data);
-  var options = 
-  {
-    host: postUrl.hostname,
-    path: path,
-    port: _isDef(postUrl.port) ? postUrl.port :
-      (postUrl.protocol == 'https:' ? 443 : 80),
-    headers: 
-    {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': encodedData.length
-    },
-    method: 'POST'
+var _post = function (postUrl, data, callback, redirects) {
+  var options = {
+    url: postUrl,
+    maxRedirects: redirects || 5,
+    form: data,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
   };
-
-  var protocol = _proxyRequest(postUrl.protocol, options);
-
-  (protocol == 'https:' ? https : http).request(options, function(res)
-  {
-    var data = '';
-    res.on('data', function(chunk)
-    {
-      data += chunk;
-    });
-
-    var isDone = false;
-    var done = function()
-    {
-      if (isDone) return;
-      isDone = true;
-
-      if(res.headers.location && --redirects)
-      {
-        _post(res.headers.location, data, callback, redirects);
-      }
-      else
-      {
-        callback(data, res.headers, res.statusCode);
-      }
+  request.post(options, function (error, response, body) {
+    if (error) {
+      callback(error);
+    } else {
+      callback(body, response.headers, response.statusCode);
     }
-
-    res.on('end', function() { done(); });
-    res.on('close', function() { done(); });
-  }).on('error', function(error)
-  {
-    return callback(error);
-  }).end(encodedData);
-}
-
-var _encodePostData = function(data)
-{
-  var encoded = querystring.stringify(data);
-  return encoded;
-}
+  });
+};
 
 var _decodePostData = function(data)
 {
