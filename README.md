@@ -1,5 +1,7 @@
 # OpenID for Node.js
 
+[![Join the chat at https://gitter.im/havard/node-openid](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/havard/node-openid?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 OpenID for Node.js is (yes, you guessed it) an OpenID implementation for Node.js. 
 
 Highlights and features include:
