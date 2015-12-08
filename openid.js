@@ -359,7 +359,7 @@ var _parseHostMeta = function(hostMeta, callback)
   var match = /^Link: <([^\n\r]+)>;/.exec(hostMeta);
   if(match != null)
   {
-    var xriUrl = match[0].slice(7,match.length - 4);
+    var xriUrl = match[0].slice(7, -4);
     _resolveXri(xriUrl, callback);
   }
   else
