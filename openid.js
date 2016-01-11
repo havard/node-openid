@@ -57,7 +57,7 @@ openid.RelyingParty.prototype.authenticate = function(identifier, immediate, cal
 
 openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
 {
-  openid.verifyAssertion(requestOrUrl, callback, this.stateless, this.extensions, this.strict);
+  openid.verifyAssertion(requestOrUrl, callback, this.returnUrl, this.stateless, this.extensions, this.strict);
 }
 
 var _isDef = function(e)
@@ -872,7 +872,7 @@ var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, 
   callback(null, _buildUrl(provider.endpoint, params));
 }
 
-openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions, strict)
+openid.verifyAssertion = function(requestOrUrl, callback, returnUrl, stateless, extensions, strict)
 {
   extensions = extensions || {};
   var assertionUrl = requestOrUrl;
@@ -907,10 +907,10 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions,
   assertionUrl = url.parse(assertionUrl, true);
   var params = assertionUrl.query;
 
-  return _verifyAssertionData(params, callback, stateless, extensions, strict);
+  return _verifyAssertionData(params, callback, returnUrl, stateless, extensions, strict);
 }
 
-var _verifyAssertionData = function(params, callback, stateless, extensions, strict) {
+var _verifyAssertionData = function(params, callback, returnUrl, stateless, extensions, strict) {
   var assertionError = _getAssertionError(params);
   if(assertionError)
   {
@@ -922,7 +922,7 @@ var _verifyAssertionData = function(params, callback, stateless, extensions, str
   }
 
   // TODO: Check nonce if OpenID 2.0
-  _verifyDiscoveredInformation(params, stateless, extensions, strict, function(error, result)
+  _verifyDiscoveredInformation(params, stateless, returnUrl, extensions, strict, function(error, result)
   {
     return callback(error, result);
   });
@@ -957,7 +957,7 @@ var _invalidateAssociationHandleIfRequested = function(params)
   return true;
 }
 
-var _verifyDiscoveredInformation = function(params, stateless, extensions, strict, callback)
+var _verifyDiscoveredInformation = function(params, stateless, returnUrl, extensions, strict, callback)
 {
   var claimedIdentifier = params['openid.claimed_id'];
   var useLocalIdentifierAsKey = false;
@@ -1009,12 +1009,12 @@ var _verifyDiscoveredInformation = function(params, stateless, extensions, stric
         return callback({ message: 'No OpenID provider was discovered for the asserted claimed identifier' });
       }
 
-      _verifyAssertionAgainstProviders(providers, params, stateless, extensions, callback);
+      _verifyAssertionAgainstProviders(providers, params, returnUrl, stateless, extensions, callback);
     });
   });
 }
 
-var _verifyAssertionAgainstProviders = function(providers, params, stateless, extensions, callback)
+var _verifyAssertionAgainstProviders = function(providers, params, returnUrl, stateless, extensions, callback)
 {
   for(var i = 0; i < providers.length; ++i)
   {
@@ -1042,6 +1042,10 @@ var _verifyAssertionAgainstProviders = function(providers, params, stateless, ex
     if(!!provider.localIdentifier && provider.localIdentifier != params['openid.identity'])
     {
       return callback({ message: 'Identity in assertion response does not match discovered local identifier' });
+    }
+    
+    if (params['openid.return_to'] !== returnUrl) {
+      return callback({ message: 'Incorrect return URL in assertion response' });
     }
 
     return _checkSignature(params, provider, stateless, function(error, result)
