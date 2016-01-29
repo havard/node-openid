@@ -356,15 +356,15 @@ var _parseHtml = function(htmlUrl, html, callback, hops)
 
 var _parseHostMeta = function(hostMeta, callback)
 {
-  var match = /^Link: <([^\n\r]+)>;/.exec(hostMeta);
-  if(match != null)
+  var match = /^Link: <([^\n\r]+?)>;/.exec(hostMeta);
+  if (match != null && match.length > 0)
   {
-    var xriUrl = match[0].slice(7,match.length - 4);
+    var xriUrl = match[1];
     _resolveXri(xriUrl, callback);
   }
   else
   {
-    callback(null)
+    callback(null);
   }
 }
 
@@ -456,7 +456,7 @@ var _resolveHostMeta = function(identifier, strict, callback, fallBackToProxy)
   var hostMetaUrl;
   if(fallBackToProxy && !strict)
   {
-    hostMetaUrl = 'https://www.google.com/accounts/o8/.well-known/host-meta?hd=' + host.host
+    hostMetaUrl = 'https://www.google.com/accounts/o8/.well-known/host-meta?hd=' + host.host;
   }
   else
   {
@@ -485,7 +485,7 @@ var _resolveHostMeta = function(identifier, strict, callback, fallBackToProxy)
         //the response to hostMetaUrl was some other http/html resource.
         //Therefore fallback to the proxy if no providers are found.
         _parseHostMeta(data, function(providers){
-          if((providers == null || providers.length == 0) && !fallBackToProxy && !strict){
+          if((providers == null || providers.length == 0) && !fallBackToProxy && !strict) {
             _resolveHostMeta(identifier, strict, callback, true);
           }
           else{
