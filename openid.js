@@ -58,7 +58,7 @@ openid.RelyingParty.prototype.authenticate = function(identifier, immediate, cal
 
 openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
 {
-  openid.verifyAssertion(requestOrUrl, callback, this.stateless, this.extensions, this.strict);
+  openid.verifyAssertion(requestOrUrl, this.returnUrl, callback, this.stateless, this.extensions, this.strict);
 }
 
 var _isDef = function(e)
@@ -873,7 +873,7 @@ var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, 
   callback(null, _buildUrl(provider.endpoint, params));
 }
 
-openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions, strict)
+openid.verifyAssertion = function(requestOrUrl, originalReturnUrl, callback, stateless, extensions, strict)
 {
   extensions = extensions || {};
   var assertionUrl = requestOrUrl;
@@ -908,7 +908,42 @@ openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions,
   assertionUrl = url.parse(assertionUrl, true);
   var params = assertionUrl.query;
 
+  if (!_verifyReturnUrl(assertionUrl, originalReturnUrl)) {
+      return callback({ message: 'Invalid return URL' });
+  }
   return _verifyAssertionData(params, callback, stateless, extensions, strict);
+}
+
+var _verifyReturnUrl = function (assertionUrl, originalReturnUrl) {
+  var receivedReturnUrl = assertionUrl.query['openid.return_to'];
+  if (!_isDef(receivedReturnUrl)) {
+    return false;
+  }
+
+  receivedReturnUrl = url.parse(receivedReturnUrl, true);
+  if (!receivedReturnUrl) {
+    return false;
+  }
+  originalReturnUrl = url.parse(originalReturnUrl, true);
+  if (!originalReturnUrl) {
+    return false;
+  }
+
+  if (originalReturnUrl.protocol !== receivedReturnUrl.protocol || // Verify scheme against original return URL
+      originalReturnUrl.host !== receivedReturnUrl.host || // Verify authority against original return URL
+      assertionUrl.pathname !== receivedReturnUrl.pathname) { // Verify path against current request URL
+    return false;
+  }
+
+  // Any query parameters that are present in the "openid.return_to" URL MUST also be present 
+  // with the same values in the URL of the HTTP request the RP received
+  for (var param in receivedReturnUrl.query) {
+    if (receivedReturnUrl.query.hasOwnProperty(param) && receivedReturnUrl.query[param] !== assertionUrl.query[param]) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 var _verifyAssertionData = function(params, callback, stateless, extensions, strict) {
@@ -925,6 +960,7 @@ var _verifyAssertionData = function(params, callback, stateless, extensions, str
   if (!_checkNonce(params)) {
       return callback({ message: 'Invalid or replayed nonce' });
   }
+
   _verifyDiscoveredInformation(params, stateless, extensions, strict, function(error, result)
   {
     return callback(error, result);
