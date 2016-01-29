@@ -86,9 +86,9 @@ exports.testResolveRyanXri = function(test)
     });
 }
 
-exports.testResolveGoogle = function(test)
+exports.testResolveYahoo = function(test)
 {
-  openid.discover('http://www.google.com/accounts/o8/id',
+  openid.discover('https://me.yahoo.com',
     true,
     function(error, providers)
     {
@@ -152,9 +152,9 @@ function associateTest(url, version, test)
   );
 }
 
-exports.testAssociateWithGoogle = function(test)
+exports.testAssociateWithYahoo = function(test)
 {
-  associateTest('http://www.google.com/accounts/o8/id', test);
+  associateTest('https://me.yahoo.com', test);
 }
 
 exports.testAssociateWithLiveJournal = function(test)
@@ -168,9 +168,9 @@ exports.testAssociateWithOpenID11 = function(test)
   associateTest('https://matt.wordpress.com/', 'http://openid.net/signon/1.1', test);
 }
 
-exports.testImmediateAuthenticationWithGoogle = function(test)
+exports.testImmediateAuthenticationWithYahoo = function(test)
 {
-  openid.authenticate('http://www.google.com/accounts/o8/id', 
+  openid.authenticate('https://me.yahoo.com', 
   'http://example.com/verify', null, true, false, function(error, url)
   {
     test.ok(!error, error);
@@ -179,22 +179,9 @@ exports.testImmediateAuthenticationWithGoogle = function(test)
   });
 }
 
-exports.testImmediateAuthenticationWithGoogleAppsForDomains = function(test)
+exports.testSetupAuthenticationWithYahoo = function(test)
 {
-  // domain must be a valid google apps domain with openid enabled.
-  openid.authenticate('https://www.google.com/accounts/o8/site-xrds?hd=opower.com',
-  'http://example.com/verify', null, true, false, function(error, url)
-  {
-    test.ok(!error, error);
-    test.ok(url.indexOf('checkid_immediate') !== -1);
-    test.done();
-  });
-}
-
-
-exports.testSetupAuthenticationWithGoogle = function(test)
-{
-  openid.authenticate('http://www.google.com/accounts/o8/id', 
+  openid.authenticate('https://me.yahoo.com', 
   'http://example.com/verify', null, false, false, function(error, url)
   {
     test.ok(!error);
@@ -203,7 +190,7 @@ exports.testSetupAuthenticationWithGoogle = function(test)
   });
 }
 
-exports.testAuthenticationWithGoogleUsingRelyingPartyObject = function(test)
+exports.testAuthenticationWithYahooUsingRelyingPartyObject = function(test)
 {
   var rp = new openid.RelyingParty(
       'http://example.com/verify',
@@ -211,7 +198,7 @@ exports.testAuthenticationWithGoogleUsingRelyingPartyObject = function(test)
       false,
       false,
       null);
-  rp.authenticate('http://www.google.com/accounts/o8/id', false, function(error, url)
+  rp.authenticate('https://me.yahoo.com', false, function(error, url)
   {
     test.ok(!error);
     test.ok(url.indexOf('checkid_setup') !== -1);

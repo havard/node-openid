@@ -27,7 +27,7 @@ var openid = require('../openid');
 exports.testVerificationUrl = function(test)
 {
   var times = 0;
-  openid.verifyAssertion('http://fu', function(error, result)
+  openid.verifyAssertion('http://fu', 'http://example.com/verify', function(error, result)
   {
     test.ok(!times++);
     test.ok(!result || !result.authenticated);
@@ -41,6 +41,7 @@ exports.testVerificationCancel = function(test)
   openid.verifyAssertion(
       'http://host/?openid.mode=cancel' +
       '&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0',
+      'http://example.com/verify', 
       function(error, result)
   {
     test.ok(!times++);
