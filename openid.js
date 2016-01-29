@@ -35,6 +35,7 @@ var convert = require('./lib/convert'),
 
 var _associations = {};
 var _discoveries = {};
+var _nonces = {};
 
 var AX_MAX_VALUES_COUNT = 1000;
 
@@ -921,7 +922,9 @@ var _verifyAssertionData = function(params, callback, stateless, extensions, str
     return callback({ message: 'Unable to invalidate association handle'});
   }
 
-  // TODO: Check nonce if OpenID 2.0
+  if (!_checkNonce(params)) {
+      return callback({ message: 'Invalid or replayed nonce' });
+  }
   _verifyDiscoveredInformation(params, stateless, extensions, strict, function(error, result)
   {
     return callback(error, result);
@@ -955,6 +958,52 @@ var _invalidateAssociationHandleIfRequested = function(params)
   }
 
   return true;
+}
+
+var _checkNonce = function (params) {
+  if (!_isDef(params['openid.ns'])) {
+    return true; // OpenID 1.1 has no nonce
+  }
+  if (!_isDef(params['openid.response_nonce'])) {
+    return false;
+  }
+
+  var nonce = params['openid.response_nonce'];
+  var timestampEnd = nonce.indexOf('Z');
+  if (timestampEnd == -1) {
+    return false;
+  }
+
+  // Check for valid timestamp in nonce
+  var timestamp = new Date(Date.parse(nonce.substring(0, timestampEnd + 1)));
+  if (Object.prototype.toString.call(timestamp) !== '[object Date]' || isNaN(timestamp)) {
+    return false;
+  }
+    
+  // Remove old nonces from our store (nonces that are more skewed than 5 minutes)
+  _removeOldNonces();
+
+  // Check if nonce is skewed by more than 5 minutes
+  if (Math.abs(new Date().getTime() - timestamp.getTime()) > 300000) {
+    return false;
+  }
+
+  // Check if nonce is replayed
+  if (_isDef(_nonces[nonce])) {
+    return false;
+  }
+
+  // Store the nonce
+  _nonces[nonce] = timestamp;
+  return true;
+}
+
+var _removeOldNonces = function () {
+  for (var nonce in _nonces) {
+    if (_nonces.hasOwnProperty(nonce) && Math.abs(new Date().getTime() - _nonces[nonce].getTime()) > 300000) {
+      delete _nonces[nonce];
+    }
+  }
 }
 
 var _verifyDiscoveredInformation = function(params, stateless, extensions, strict, callback)
