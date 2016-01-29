@@ -53,8 +53,8 @@ var extensions = [new openid.UserInterface(),
                       })];
 
 var relyingParty = new openid.RelyingParty(
-    'http://example.com/verify', // Verification URL (yours)
-    null, // Realm (optional, specifies realm for OpenID authentication)
+    'http://162.243.139.73:8090/verify', // Verification URL (yours)
+    "http://162.243.139.73:8090", // Realm (optional, specifies realm for OpenID authentication)
     false, // Use stateless verification
     false, // Strict mode
     extensions); // List of extensions to enable and include
@@ -126,4 +126,4 @@ var server = require('http').createServer(
                 + '</form></body></html>');
         }
     });
-server.listen(80);
+server.listen(8090);
