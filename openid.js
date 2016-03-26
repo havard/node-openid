@@ -879,7 +879,7 @@ openid.verifyAssertion = function(requestOrUrl, originalReturnUrl, callback, sta
   var assertionUrl = requestOrUrl;
   if(typeof(requestOrUrl) !== typeof(''))
   {
-    if(requestOrUrl.method == 'POST') {
+    if(requestOrUrl.method.toUpperCase() == 'POST') {
       if((requestOrUrl.headers['content-type'] || '').toLowerCase().indexOf('application/x-www-form-urlencoded') === 0) {
         // POST response received
         var data = '';
@@ -899,7 +899,7 @@ openid.verifyAssertion = function(requestOrUrl, originalReturnUrl, callback, sta
       
       return; // Avoid falling through to GET method assertion
     }
-    else if(requestOrUrl.method != 'GET') {
+    else if(requestOrUrl.method.toUpperCase() != 'GET') {
       return callback({ message: 'Invalid request method from OpenID provider' });
     }
     assertionUrl = requestOrUrl.url;
