@@ -40,6 +40,10 @@ var AX_MAX_VALUES_COUNT = 1000;
 
 var openid = exports;
 
+function hasOwnProperty(obj, prop) {
+  return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+
 openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions)
 {
   this.returnUrl = returnUrl;
@@ -149,7 +153,7 @@ var _buildUrl = function(theUrl, params)
     {
       for(var key in params)
       {
-        if(params.hasOwnProperty(key))
+        if(hasOwnProperty(params, key))
         {
           theUrl.query[key] = params[key];
         }
@@ -809,7 +813,7 @@ var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, 
 
   for (var i in extensions)
   {
-    if(!extensions.hasOwnProperty(i))
+    if(!hasOwnProperty(extensions, i))
     {
       continue;
     }
@@ -817,7 +821,7 @@ var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, 
     var extension = extensions[i];
     for (var key in extension.requestParams)
     {
-      if (!extension.requestParams.hasOwnProperty(key)) { continue; }
+      if (!hasOwnProperty(extension.requestParams, key)) { continue; }
       params[key] = extension.requestParams[key];
     }
   }
@@ -1054,7 +1058,7 @@ var _verifyAssertionAgainstProviders = function(providers, params, stateless, ex
       {
         for(var ext in extensions)
         {
-          if (!extensions.hasOwnProperty(ext))
+          if (!hasOwnProperty(extensions, ext))
           { 
             continue; 
           }
@@ -1145,7 +1149,7 @@ var _checkSignatureUsingProvider = function(params, provider, callback)
   };
   for(var key in params)
   {
-    if(params.hasOwnProperty(key) && key != 'openid.mode')
+    if(hasOwnProperty(params, key) && key != 'openid.mode')
     {
       requestParams[key] = params[key];
     }
@@ -1302,7 +1306,7 @@ openid.AttributeExchange = function AttributeExchange(options)
   var optional = [];
   for (var ns in options)
   {
-    if (!options.hasOwnProperty(ns)) { continue; }
+    if (!hasOwnProperty(options, ns)) { continue; }
     if (options[ns] == 'required')
     {
       required.push(ns);
@@ -1344,7 +1348,7 @@ openid.AttributeExchange.prototype.fillResult = function(params, result)
   var values = {};
   for (var k in params)
   {
-    if (!params.hasOwnProperty(k)) { continue; }
+    if (!hasOwnProperty(params, k)) { continue; }
     var matches = k.match(regex);
     if (!matches)
     {
@@ -1488,7 +1492,7 @@ openid.PAPE.prototype.fillResult = function(params, result)
   var paramString = 'openid.' + extension + '.';
   var thisParam;
   for (var p in params) {
-    if (params.hasOwnProperty(p)) {
+    if (hasOwnProperty(params, p)) {
       if (p.substr(0, paramString.length) === paramString) {
         thisParam = p.substr(paramString.length);
         if (thisParam === 'auth_policies') {
