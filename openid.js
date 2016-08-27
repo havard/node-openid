@@ -935,7 +935,7 @@ var _verifyReturnUrl = function (assertionUrl, originalReturnUrl) {
 
   if (originalReturnUrl.protocol !== receivedReturnUrl.protocol || // Verify scheme against original return URL
       originalReturnUrl.host !== receivedReturnUrl.host || // Verify authority against original return URL
-      assertionUrl.pathname !== receivedReturnUrl.pathname) { // Verify path against current request URL
+      originalReturnUrl.pathname !== receivedReturnUrl.pathname) { // Verify path against current request URL
     return false;
   }
 
