@@ -25,7 +25,7 @@
 var crypto = require('crypto');
 var convert = require('../lib/convert');
 
-exports.testBase64Encode = function(test)
+exports.testBase64Decode = function(test)
 {
   var input = 'KKn9KPJIg2BncwIgHcKNZCOhflbWniT0NBmv8hB5btQ=';
 
@@ -33,7 +33,7 @@ exports.testBase64Encode = function(test)
   test.done();
 };
 
-exports.testBase64Decode = function(test)
+exports.testBase64Encode = function(test)
 {
   var input = '(©ý(òH`gs Âd#¡~VÖ$ô4¯òynÔ';
 
