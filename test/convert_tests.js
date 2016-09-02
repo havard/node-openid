@@ -64,7 +64,7 @@ exports.testAnalogToDigestingContext = function(test)
     'alias3.type.alias1:http://axschema.org/contact/email\n' +
     'alias3.value.alias1:derleider@web.de\n';
 
-  var decoded = convert.base64.decode(association.secret);
+  var decoded = new Buffer(association.secret, 'base64');
 
   var hmac = crypto.createHmac(association.type, decoded);
   hmac.update(message, 'utf8');

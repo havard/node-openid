@@ -1211,7 +1211,8 @@ var _checkSignatureUsingAssociation = function(params, callback)
       message += param + ':' + value + '\n';
     }
 
-    var hmac = crypto.createHmac(association.type, convert.base64.decode(association.secret));
+    var originalSecret = convert.base64.decodeToBuffer(association.secret);
+    var hmac = crypto.createHmac(association.type, originalSecret);
     hmac.update(message, 'utf8');
     var ourSignature = hmac.digest('base64');
 
