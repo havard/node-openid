@@ -656,7 +656,7 @@ openid.associate = function(provider, callback, strict, algorithm)
         var serverPublic = _fromBase64(data.dh_server_public);
         var sharedSecret = convert.btwoc(dh.computeSecret(serverPublic, 'binary', 'binary'));
         var hash = crypto.createHash(hashAlgorithm);
-        hash.update(sharedSecret);
+        hash.update(new Buffer(sharedSecret, 'binary'));
         sharedSecret = hash.digest('binary');
         var encMacKey = convert.base64.decode(data.enc_mac_key);
         secret = convert.base64.encode(_xor(encMacKey, sharedSecret));
