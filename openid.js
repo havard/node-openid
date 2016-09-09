@@ -98,7 +98,7 @@ var _base64encode = function(str) {
 };
 
 var _base64decode = function(str) {
-  return _buffer(str, 'base64').toString('binary')
+  return _buffer(str, 'base64').toString('binary');
 };
 
 var _bigIntToBase64 = function(binary)
@@ -1157,7 +1157,7 @@ var _checkSignatureUsingAssociation = function(params, callback)
       message += param + ':' + value + '\n';
     }
 
-    var hmac = crypto.createHmac(association.type, _base64decode(association.secret));
+    var hmac = crypto.createHmac(association.type, _buffer(association.secret, 'base64'));
     hmac.update(message, 'utf8');
     var ourSignature = hmac.digest('base64');
 
