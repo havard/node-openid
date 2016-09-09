@@ -26,7 +26,7 @@
  * vim: set sw=2 ts=2 et tw=80 : 
  */
 
-var convert = require('./lib/convert'),
+var Buffer = require('buffer').Buffer; 
     crypto = require('crypto'),
     request = require('request'),
     querystring = require('querystring'),
@@ -65,20 +65,51 @@ openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
   openid.verifyAssertion(requestOrUrl, this.returnUrl, callback, this.stateless, this.extensions, this.strict);
 }
 
+
+
+var _btwoc = function(i)
+{
+  if(i.charCodeAt(0) > 127)
+  {
+    return String.fromCharCode(0) + i;
+  }
+  return i;
+}
+
+var _unbtwoc = function(i)
+{
+  if(i[0] === String.fromCharCode(0))
+  {
+    return i.substr(1);
+  }
+
+  return i;
+}
+
 var _isDef = function(e)
 {
   var undefined;
   return e !== undefined;
 }
 
-var _toBase64 = function(binary)
+var _buffer = typeof(Buffer.from) === 'function' ? Buffer.from : function(str, enc) { return new Buffer(str, enc); }; 
+
+var _base64encode = function(str) {
+  return _buffer(str, 'binary').toString('base64');
+};
+
+var _base64decode = function(str) {
+  return _buffer(str, 'base64').toString('binary')
+};
+
+var _bigIntToBase64 = function(binary)
 {
-  return convert.base64.encode(convert.btwoc(binary));
+  return _base64encode(_btwoc(binary));  
 }
 
-var _fromBase64 = function(str)
+var _bigIntFromBase64 = function(str)
 {
-  return convert.unbtwoc(convert.base64.decode(str));
+  return _unbtwoc(_base64decode(str));
 }
 
 var _xor = function(a, b)
@@ -575,9 +606,9 @@ openid.associate = function(provider, callback, strict, algorithm)
   if(algorithm.indexOf('no-encryption') === -1)
   {
     dh = _createDiffieHellmanKeyExchange(algorithm);
-    params['openid.dh_modulus'] = _toBase64(dh.getPrime('binary'));
-    params['openid.dh_gen'] = _toBase64(dh.getGenerator('binary'));
-    params['openid.dh_consumer_public'] = _toBase64(dh.getPublicKey('binary'));
+    params['openid.dh_modulus'] = _bigIntToBase64(dh.getPrime('binary'));
+    params['openid.dh_gen'] = _bigIntToBase64(dh.getGenerator('binary'));
+    params['openid.dh_consumer_public'] = _bigIntToBase64(dh.getPublicKey('binary'));
   }
 
   _post(provider.endpoint, params, function(data, headers, statusCode)
@@ -653,13 +684,13 @@ openid.associate = function(provider, callback, strict, algorithm)
       }
       else
       {
-        var serverPublic = _fromBase64(data.dh_server_public);
-        var sharedSecret = convert.btwoc(dh.computeSecret(serverPublic, 'binary', 'binary'));
+        var serverPublic = _bigIntFromBase64(data.dh_server_public);
+        var sharedSecret = _btwoc(dh.computeSecret(serverPublic, 'binary', 'binary'));
         var hash = crypto.createHash(hashAlgorithm);
-        hash.update(sharedSecret);
+        hash.update(_buffer(sharedSecret, 'binary'));
         sharedSecret = hash.digest('binary');
-        var encMacKey = convert.base64.decode(data.enc_mac_key);
-        secret = convert.base64.encode(_xor(encMacKey, sharedSecret));
+        var encMacKey = _base64decode(data.enc_mac_key);
+        secret = _base64encode(_xor(encMacKey, sharedSecret));
       }
 
       if (!_isDef(data.assoc_handle)) {
@@ -1211,7 +1242,7 @@ var _checkSignatureUsingAssociation = function(params, callback)
       message += param + ':' + value + '\n';
     }
 
-    var hmac = crypto.createHmac(association.type, convert.base64.decode(association.secret));
+    var hmac = crypto.createHmac(association.type, _base64decode(association.secret));
     hmac.update(message, 'utf8');
     var ourSignature = hmac.digest('base64');
 
