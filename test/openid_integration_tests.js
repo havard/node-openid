@@ -74,21 +74,24 @@ exports.testEmptyUrl = function(test)
     });
 }
 
-exports.testResolveRyanXri = function(test)
-{
-  openid.discover('=ryan',
-    true,
-    function(error, providers)
-    {
-      test.ok(!error);
-      test.equal(2, providers.length);
-      test.done();
-    });
-}
+// 2016-09-09: XRI.net certificate has expired as of 2016-08-15, 
+// so disable this test for now.
 
-exports.testResolveYahoo = function(test)
+// exports.testResolveRyanXri = function(test)
+// {
+//   openid.discover('=ryan',
+//     true,
+//     function(error, providers)
+//     {
+//       test.ok(!error);
+//       test.equal(2, providers.length);
+//       test.done();
+//     });
+// }
+
+exports.testResolveUbuntu = function(test)
 {
-  openid.discover('https://me.yahoo.com',
+  openid.discover('https://login.ubuntu.com',
     true,
     function(error, providers)
     {
@@ -152,9 +155,9 @@ function associateTest(url, version, test)
   );
 }
 
-exports.testAssociateWithYahoo = function(test)
+exports.testAssociateWithUbuntu = function(test)
 {
-  associateTest('https://me.yahoo.com', test);
+  associateTest('https://login.ubuntu.com', test);
 }
 
 exports.testAssociateWithLiveJournal = function(test)
@@ -168,9 +171,9 @@ exports.testAssociateWithOpenID11 = function(test)
   associateTest('https://matt.wordpress.com/', 'http://openid.net/signon/1.1', test);
 }
 
-exports.testImmediateAuthenticationWithYahoo = function(test)
+exports.testImmediateAuthenticationWithUbuntu = function(test)
 {
-  openid.authenticate('https://me.yahoo.com', 
+  openid.authenticate('https://login.ubuntu.com', 
   'http://example.com/verify', null, true, false, function(error, url)
   {
     test.ok(!error, error);
@@ -179,9 +182,9 @@ exports.testImmediateAuthenticationWithYahoo = function(test)
   });
 }
 
-exports.testSetupAuthenticationWithYahoo = function(test)
+exports.testSetupAuthenticationWithUbuntu = function(test)
 {
-  openid.authenticate('https://me.yahoo.com', 
+  openid.authenticate('https://login.ubuntu.com', 
   'http://example.com/verify', null, false, false, function(error, url)
   {
     test.ok(!error);
@@ -190,7 +193,7 @@ exports.testSetupAuthenticationWithYahoo = function(test)
   });
 }
 
-exports.testAuthenticationWithYahooUsingRelyingPartyObject = function(test)
+exports.testAuthenticationWithUbuntuUsingRelyingPartyObject = function(test)
 {
   var rp = new openid.RelyingParty(
       'http://example.com/verify',
@@ -198,7 +201,7 @@ exports.testAuthenticationWithYahooUsingRelyingPartyObject = function(test)
       false,
       false,
       null);
-  rp.authenticate('https://me.yahoo.com', false, function(error, url)
+  rp.authenticate('https://login.ubuntu.com', false, function(error, url)
   {
     test.ok(!error);
     test.ok(url.indexOf('checkid_setup') !== -1);
