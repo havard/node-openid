@@ -135,7 +135,4 @@ requests go through a proxy server, by using the following environment variables
 
 ## License
 
-OpenID for Node.js is licensed under the MIT license. See LICENSE for further details. 
-The libary includes bigint functionality released by Tom Wu under the BSD license, 
-and Base64 functions released by Nick Galbreath under the MIT license. Please see 
-`lib/bigint.js` and `lib/base64.js` for the details of the licenses for these functions.
+OpenID for Node.js is licensed under the MIT license. See LICENSE for further details.
