@@ -220,7 +220,7 @@ var _get = function (getUrl, params, callback, redirects) {
     url: getUrl,
     maxRedirects: redirects || 5,
     qs: params,
-    headers: { 'Accept' : 'application/xrds+xml,text/html,text/plain,*/*' }
+    headers: { 'Accept' : 'application/xrds+xml,text/html,text/plain,*/*;q=0.9' }
   };
   request.get(options, function (error, response, body) {
     if (error) {
