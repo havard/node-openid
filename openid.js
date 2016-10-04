@@ -971,7 +971,7 @@ openid.verifyAssertion = function(requestOrUrl, originalReturnUrl, callback, sta
 var _verifyReturnUrl = function (assertionUrl, originalReturnUrl) {
   var receivedReturnUrl = assertionUrl.query['openid.return_to'];
   if (!_isDef(receivedReturnUrl)) {
-    return false;
+    return true;
   }
 
   receivedReturnUrl = url.parse(receivedReturnUrl, true);

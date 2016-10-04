@@ -44,6 +44,7 @@ exports.testVerificationCancel = function(test)
       'http://example.com/verify', 
       function(error, result)
   {
+    test.strictEqual(error.message, 'Authentication cancelled');
     test.ok(!times++);
     test.ok(!result || !result.authenticated);
     test.done();
