@@ -46,6 +46,7 @@
     "nock": "~1.1.0"
   },
   "dependencies": {
+    "libxmljs": "^0.15.0",
     "request": "^2.61.0"
   }
 }

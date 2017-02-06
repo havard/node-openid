@@ -337,13 +337,17 @@ var _parseXrds = function(xrdsUrl, xrdsData)
 
 var _matchMetaTag = function(html)
 {
-  var metaTagMatches = /<meta\s+.*?http-equiv="x-xrds-location"\s+(.*?)>/ig.exec(html);
-  if(!metaTagMatches || metaTagMatches.length < 2)
+  var metaTagMatches = /<meta\s+(?:.*?)http-equiv="x-xrds-location"\s+(.*?)>/ig.exec(html);
+  // try the other way around, first content, then http-equiv
+  if (!metaTagMatches)
+    metaTagMatches = /<meta\s+?content="[^""]+"\s+?http-equiv="x-xrds-location".*?>/ig.exec(html);
+
+  if(!metaTagMatches)
   {
     return null;
   }
 
-  var contentMatches = /content="(.*?)"/ig.exec(metaTagMatches[1]);
+  var contentMatches = /content="(.*?)"/ig.exec(metaTagMatches[0]);
   if(!contentMatches || contentMatches.length < 2)
   {
     return null;
