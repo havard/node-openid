@@ -27,7 +27,7 @@ var openid = require('openid');
 var url = require('url');
 var querystring = require('querystring');
 var relyingParty = new openid.RelyingParty(
-    'http://example.com/verify', // Verification URL (yours)
+    'http://localhost/verify', // Verification URL (yours)
     null, // Realm (optional, specifies realm for OpenID authentication)
     false, // Use stateless verification
     false, // Strict mode

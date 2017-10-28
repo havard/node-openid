@@ -30,15 +30,15 @@ var querystring = require('querystring');
 var extensions = [new openid.UserInterface(), 
                   new openid.SimpleRegistration(
                       {
-                        "nickname" : true, 
-                        "email" : true, 
-                        "fullname" : true,
-                        "dob" : true, 
-                        "gender" : true, 
-                        "postcode" : true,
-                        "country" : true, 
-                        "language" : true, 
-                        "timezone" : true
+                        "nickname" : "optional", 
+                        "email" : "required", 
+                        "fullname" : "required",
+                        "dob" : "optional", 
+                        "gender" : "optional", 
+                        "postcode" : "optional",
+                        "country" : "optional", 
+                        "language" : "optional", 
+                        "timezone" : "optional"
                       }),
                   new openid.AttributeExchange(
                       {
@@ -53,7 +53,7 @@ var extensions = [new openid.UserInterface(),
                       })];
 
 var relyingParty = new openid.RelyingParty(
-    'http://example.com/verify', // Verification URL (yours)
+    'http://localhost/verify', // Verification URL (yours)
     null, // Realm (optional, specifies realm for OpenID authentication)
     false, // Use stateless verification
     false, // Strict mode
