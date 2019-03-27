@@ -303,9 +303,6 @@ var _parseXrds = function(xrdsUrl, xrdsData)
   for(var i = 0, len = services.length; i < len; ++i)
   {
     var service = services[i];
-    if (!service.uri){
-      continue;
-    }
     var provider = {};
     provider.endpoint = service.uri;
     if(/https?:\/\/xri./.test(xrdsUrl))
@@ -566,6 +563,7 @@ openid.discover = function(identifier, strict, callback)
     // XRDS
     identifier = 'https://xri.net/' + identifier + '?_xrd_r=application/xrds%2Bxml';
   }
+  
   // Try XRDS/Yadis discovery
   _resolveXri(identifier, function(providers)
   {
