@@ -1,6 +1,6 @@
 {
   "name": "openid",
-  "description": "OpenID 1.1/2.0 library for node.js",
+  "description": "OpenID 1.1/2.0 library for Node.js",
   "keywords": [
     "openid",
     "auth",
@@ -9,14 +9,14 @@
     "identifier",
     "relying",
     "party",
+    "relying party",
     "1.1",
     "2.0",
     "library"
   ],
   "author": {
     "name": "Håvard Stranden",
-    "email": "havard.stranden@gmail.com",
-    "web": "http://ox.no"
+    "email": "havard.stranden@gmail.com"
   },
   "version": "2.0.6",
   "repository": {
@@ -30,17 +30,15 @@
   },
   "main": "./openid.js",
   "scripts": {
-    "test": "nodeunit test/"
+    "test": "jest"
   },
   "engines": {
     "node": ">= 0.6.0"
   },
   "devDependencies": {
-    "nodeunit": "~0.9.1",
-    "sinon": "~1.13.0",
-    "nock": "~1.1.0"
+    "jest": "^26.4.0"
   },
   "dependencies": {
-    "request": "^2.61.0"
+    "request": "^2.88.2"
   }
 }
