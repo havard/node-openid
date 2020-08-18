@@ -28,7 +28,7 @@
 
 var Buffer = require('buffer').Buffer,
     crypto = require('crypto'),
-    request = require('request'),
+    http = require('./http');
     querystring = require('querystring'),
     url = require('url'),
     xrds = require('./lib/xrds');
@@ -40,6 +40,9 @@ var _nonces = {};
 var AX_MAX_VALUES_COUNT = 1000;
 
 var openid = exports;
+
+var _get = http.get;
+var _post = http.post;
 
 function hasOwnProperty(obj, prop) {
   return Object.prototype.hasOwnProperty.call(obj, prop);
@@ -214,61 +217,27 @@ var _buildUrl = function(theUrl, params)
 
   return url.format(theUrl);
 }
-
-var _get = function (getUrl, params, callback, redirects) {
-  var options = {
-    url: getUrl,
-    maxRedirects: redirects || 5,
-    qs: params,
-    headers: { 'Accept' : 'application/xrds+xml,text/html,text/plain,*/*;q=0.9' }
-  };
-  request.get(options, function (error, response, body) {
-    if (error) {
-      callback(error);
-    } else {
-      callback(body, response.headers, response.statusCode);
-    }
-  });
-};
-
-var _post = function (postUrl, data, callback, redirects) {
-  var options = {
-    url: postUrl,
-    maxRedirects: redirects || 5,
-    form: data,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-  };
-  request.post(options, function (error, response, body) {
-    if (error) {
-      callback(error);
-    } else {
-      callback(body, response.headers, response.statusCode);
-    }
-  });
-};
-
 var _decodePostData = function(data)
 {
   var lines = data.split('\n');
   var result = {};
   for (var i = 0; i < lines.length ; i++) {
-    var line = lines[i];
-    if (line.length > 0 && line[line.length - 1] == '\r') {
+      var line = lines[i];
+      if (line.length > 0 && line[line.length - 1] == '\r') {
       line = line.substring(0, line.length - 1);
-    }
-    var colon = line.indexOf(':');
-    if (colon === -1)
-    {
+      }
+      var colon = line.indexOf(':');
+      if (colon === -1)
+      {
       continue;
-    }
-    var key = line.substr(0, line.indexOf(':'));
-    var value = line.substr(line.indexOf(':') + 1);
-    result[key] = value;
+      }
+      var key = line.substr(0, line.indexOf(':'));
+      var value = line.substr(line.indexOf(':') + 1);
+      result[key] = value;
   }
 
   return result;
 }
-
 var _normalizeIdentifier = function(identifier)
 {
   identifier = identifier.replace(/^\s+|\s+$/g, '');
