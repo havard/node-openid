@@ -28,7 +28,7 @@
 
 var Buffer = require('buffer').Buffer,
     crypto = require('crypto'),
-    http = require('./http');
+    http = require('./http'),
     querystring = require('querystring'),
     url = require('url'),
     xrds = require('./lib/xrds');
