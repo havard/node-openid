@@ -18,7 +18,7 @@
     "name": "Håvard Stranden",
     "email": "havard.stranden@gmail.com"
   },
-  "version": "2.0.7",
+  "version": "2.0.8",
   "repository": {
     "type": "git",
     "url": "http://github.com/havard/node-openid.git"
