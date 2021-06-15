@@ -38,7 +38,6 @@ exports.get = (getUrl, params, callback, redirects) => {
     }).then(result => {
         callback(result.data, result.headers, result.status);
     }).catch(err => {
-        console.error(JSON.stringify(err));
         callback(err);
     });
 };
@@ -53,11 +52,9 @@ exports.post = function (postUrl, data, callback, redirects) {
             'Content-Type': 'application/x-www-form-urlencoded'
         }
     };
-    console.log(options);
     axios(options).then(response => {
         callback(response.data, response.headers, response.status);
     }).catch(err => {
-        console.error(JSON.stringify(err, null, 2));
         callback(err);
     });
 };
