@@ -23,36 +23,41 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
 
-const request = require('request');
+const axios = require('axios').default;
+const stringify = require("qs").stringify;
+
 
 exports.get = (getUrl, params, callback, redirects) => {
-    const options = {
-        url: getUrl,
+    axios.get(getUrl, {
         maxRedirects: redirects || 5,
         qs: params,
-        headers: { 'Accept' : 'application/xrds+xml,text/html,text/plain,*/*;q=0.9' }
-    };
-    request.get(options, function (error, response, body) {
-        if (error) {
-        callback(error);
-        } else {
-        callback(body, response.headers, response.statusCode);
-        }
+        headers: {
+            'Accept': 'application/xrds+xml,text/html,text/plain,*/*;q=0.9'
+        },
+        transformResponse: a => a
+    }).then(result => {
+        callback(result.data, result.headers, result.status);
+    }).catch(err => {
+        console.error(JSON.stringify(err));
+        callback(err);
     });
 };
-  
+
 exports.post = function (postUrl, data, callback, redirects) {
     const options = {
+        method: "POST",
         url: postUrl,
         maxRedirects: redirects || 5,
-        form: data,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    };
-    request.post(options, function (error, response, body) {
-        if (error) {
-        callback(error);
-        } else {
-        callback(body, response.headers, response.statusCode);
+        data: stringify(data),
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
         }
+    };
+    console.log(options);
+    axios(options).then(response => {
+        callback(response.data, response.headers, response.status);
+    }).catch(err => {
+        console.error(JSON.stringify(err, null, 2));
+        callback(err);
     });
 };
