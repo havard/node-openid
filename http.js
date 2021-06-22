@@ -52,9 +52,7 @@ exports.post = function (postUrl, data, callback, redirects) {
             'Content-Type': 'application/x-www-form-urlencoded'
         }
     };
-    axios(options).then(response => {
-        callback(response.data, response.headers, response.status);
-    }).catch(err => {
-        callback(err);
-    });
+    axios(options).then(response => 
+        callback(response.data, response.headers, response.status)
+    ).catch(err => callback(err));
 };
