@@ -23,36 +23,30 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
 
-const axios = require('axios').default;
-const stringify = require("qs").stringify;
+import axios, { AxiosResponse } from "axios";
 
-
-exports.get = (getUrl, params, callback, redirects) => {
-    axios.get(getUrl, {
-        maxRedirects: redirects || 5,
-        qs: params,
+export async function get(getUrl: string, params?: URLSearchParams, redirects?: number): Promise<AxiosResponse<string>> {
+    return axios({
+        method: 'GET',
+        url: getUrl,
+        params,
+        maxRedirects: redirects ?? 5,
+        responseType: 'text',
         headers: {
             'Accept': 'application/xrds+xml,text/html,text/plain,*/*;q=0.9'
-        },
-        transformResponse: a => a
-    }).then(result => {
-        callback(result.data, result.headers, result.status);
-    }).catch(err => {
-        callback(err);
+        }
     });
 };
 
-exports.post = function (postUrl, data, callback, redirects) {
-    const options = {
+export async function post(postUrl: string, data: any, redirects?: number): Promise<AxiosResponse<string>> {
+    return axios({
         method: "POST",
         url: postUrl,
-        maxRedirects: redirects || 5,
-        data: stringify(data),
+        maxRedirects: redirects ?? 5,
+        data: JSON.stringify(data),
+        responseType: 'text',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
         }
-    };
-    axios(options).then(response => 
-        callback(response.data, response.headers, response.status)
-    ).catch(err => callback(err));
+    });
 };

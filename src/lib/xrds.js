@@ -26,7 +26,7 @@
  * vim: set sw=2 ts=2 et tw=80 : 
  */
 
-exports.parse  = function(data)
+exports.parse = function(data)
 {
   data = data.replace(/\r|\n/g, '');
   var services = [];
