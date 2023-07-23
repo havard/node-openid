@@ -23,29 +23,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
 
-const openid = require('../openid');
-
-test('Wrong URL in assertion is rejected using functions', () => {
-  openid.verifyAssertion(
-    'http://fu', 
-    'http://example.com/verify', 
-    (error, result) => {
-      expect(result).toBeFalsy();
-      expect(error.message).toBe('Invalid return URL');
-    });
-});
-
+const { RelyingParty } = require('../dist/cjs/index.js');
 
 test('Wrong URL in assertion is rejected using RelyingParty API', () => {
-  const rp = new openid.RelyingParty(
-      'http://example.com/verify',
-      null,
-      false,
-      false,
-      null);
+  const rp = new RelyingParty(
+    'http://example.com/verify',
+    null,
+    false,
+    false,
+    null);
 
-  rp.verifyAssertion('http://fu', (error, result) => {
-    expect(result).toBeFalsy();
+    console.log(51)
+
+  rp.verifyAssertion(new URL('http://fu.com/')).then((e) => {
+    expect(e).toBe(undefined);
+  }).catch((error) => {
     expect(error.message).toBe('Invalid return URL');
   });
 });

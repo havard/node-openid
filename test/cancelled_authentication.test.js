@@ -23,16 +23,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
 
-const openid = require('../openid');
+const { RelyingParty } = require('../dist/cjs/index.js');
 
-test('Cancelled verification does not authenticate', () => {
-    openid.verifyAssertion(
-        'http://host/?openid.mode=cancel' +
-        '&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0',
-        'http://example.com/verify', 
-        (error, result) => {
-            expect(error).toBeTruthy();
-            expect(result).toBeFalsy();
-        });
-  });
+test('Cancelled verification does not authenticate', async () => {
+    const openid = new RelyingParty('http://localhost:8888/login/verify', null, false, false, []);
+
+    openid.verifyAssertion(new URL('http://localhost:8888/login/verify?openid.mode=cancel&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&openid.return_to=http%3A%2F%2Flocalhost%3A8888%2Flogin%2Fverify%3Fopenid.mode%3Dcancel%26openid.ns%3Dhttp%253A%252F%252Fspecs.openid.net%252Fauth%252F2.0')).then((response) => {
+        expect(response.authenticated).toBe(false);
+    }).catch(e => {
+        expect(e.message).toBe('Authentication cancelled');
+    })
+});
   

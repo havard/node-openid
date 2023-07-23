@@ -26,21 +26,19 @@
   },
   "scripts": {
     "build": "rimraf dist/* && tsc -p tsconfig.json && tsc -p build/tsconfig-cjs.json && node build/scripts/fixup",
-    "test": "jest"
+    "test": "jest --silent=false"
   },
   "author": {
     "name": "Håvard Stranden",
     "email": "havard.stranden@gmail.com"
   },
   "devDependencies": {
+    "jest": "^26.6.3",
     "rimraf": "^5.0.1",
-    "tsc": "^2.0.4",
-    "typescript": "^5.1.6",
-    "jest": "^26.6.3"
+    "typescript": "^5.1.6"
   },
   "dependencies": {
-    "axios": "^0.21.4",
-    "qs": "^6.5.2"
+    "axios": "^0.21.4"
   },
   "engines": {
     "node": ">= 10.0.0"

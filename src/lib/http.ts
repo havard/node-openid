@@ -38,12 +38,12 @@ export async function get(getUrl: string, params?: URLSearchParams, redirects?: 
     });
 };
 
-export async function post(postUrl: string, data: any, redirects?: number): Promise<AxiosResponse<string>> {
+export async function post(postUrl: string, data: URLSearchParams, redirects?: number): Promise<AxiosResponse<string>> {
     return axios({
         method: "POST",
         url: postUrl,
         maxRedirects: redirects ?? 5,
-        data: JSON.stringify(data),
+        data: data.toString(),
         responseType: 'text',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded'

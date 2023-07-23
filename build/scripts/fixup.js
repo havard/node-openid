@@ -28,4 +28,4 @@ const processFiles = (baseFolder) => {
 };
 
 // We also have to add explicit `.js` file extensions for our ESM imports.
-processFiles('./dist/esm');
+processFiles('./dist/mjs');

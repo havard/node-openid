@@ -27,94 +27,58 @@
  */
 
 import crypto from 'crypto';
-import { get, post } from './http';
-import xrds from './lib/xrds';
-import Extension from 'extensions';
-
-interface Association {
-  provider: Provider,
-  type: string,
-  secret: string
-}
-
-let AX_MAX_VALUES_COUNT = 1000;
-
-let openid = exports;
-
-function hasOwnProperty(obj: any, key: string) {
-  return Object.prototype.hasOwnProperty.call(obj, key);
-}
-
-interface ErrorMessage {
-  message: string;
-}
-
-export type AssertionResponse = {
-  authenticated: false;
-} | {
-  authenticated: true;
-  claimedIdentifier: string | null;
-}
-
-type Realm = string | null;
-
-interface Provider {
-  endpoint: string;
-  claimedIdentifier?: string;
-  version: string;
-  localIdentifier: string | null;
-}
-
-export interface Request {
-  method: string;
-  url: string;
-  getHeader(header: string): string | number | string[] | undefined;
-  on(event: string, cb: (data: any) => void): void;
-}
-
-export const isRequest = (b: any): b is Request => {
-  return (b as Request).method !== undefined &&
-    (b as Request).url !== undefined &&
-    typeof (b as Request).getHeader === 'function'
-    && typeof (b as Request).on === 'function';
-}
-
-function isValidDate(d: any) {
-  return d instanceof Date && !isNaN(d as unknown as number);
-}
-
-type RequestOrUrl = Request | URL | string;
+import { get, post } from './lib/http';
+import { parse as xrdsParse } from './lib/xrds';
+import Extension from './extension';
+import { hasOwnProperty, isValidDate } from './lib/util';
+import { Realm, Association, Provider, RequestOrUrl, ErrorMessage, AssertionResponse, isRequest, ValidityChecks } from './types';
 
 export class RelyingParty {
-  returnUrl: string;
-  realm: Realm;
-  stateless: boolean;
-  strict: boolean;
-  extensions: Extension[];
+  readonly returnUrl: string;
+  readonly realm: Realm;
+  readonly stateless: boolean;
+  readonly strict: boolean;
+  readonly extensions: Extension[];
+  readonly validityChecks?: ValidityChecks;
 
   #associations: Record<string, Association> = {};
   #discoveries: Record<string, Provider> = {};
   #nonces: Record<string, Date> = {};
 
-  constructor(returnUrl: string, realm: Realm, stateless: boolean, strict: boolean, extensions: Extension[]) {
+  /**
+   * 
+   * @param returnUrl Verification URL
+   * @param realm Realm (optional, specifies realm for OpenID authentication)
+   * @param stateless Use stateless verification
+   * @param strict Strict mode
+   * @param extensions List of Extension(s) to enable and include
+   * @param validityChecks Optional safety checks, recommended to turn on.
+   */
+  constructor(returnUrl: string, realm: Realm, stateless: boolean, strict: boolean, extensions: Extension[], validityChecks?: ValidityChecks) {
     this.returnUrl = returnUrl;
     this.realm = realm || null;
     this.stateless = stateless;
     this.strict = strict;
     this.extensions = extensions;
+    this.validityChecks = validityChecks;
   }
 
   authenticate(identifier: string, immediate: boolean) {
-    return this.#authenticate(identifier, this.returnUrl, this.realm, immediate, this.stateless, this.extensions, this.strict);
+    return this.#authenticate(identifier, immediate);
   }
 
+  /**
+   * 
+   * @param requestOrUrl node:http.ClientRequest or URL object or URL string.
+   * @returns 
+   */
   verifyAssertion(requestOrUrl: RequestOrUrl) {
-    return this.#verifyAssertion(requestOrUrl, this.returnUrl, this.stateless, this.extensions, this.strict);
+    return this.#verifyAssertion(requestOrUrl);
   }
 
-  async #authenticate(identifier: string, returnUrl: string, realm: Realm, immediate: boolean, stateless: boolean, extensions: Extension[], strict: boolean) {
+  async #authenticate(identifier: string, immediate: boolean) {
     return new Promise<string>(async (resolve, reject) => {
-      const providers = await this.#discover(identifier, strict);
+      const providers = await this.#discover(identifier);
       if (!providers || providers.length === 0) {
         return reject({ message: 'No providers found for the given identifier' });
       }
@@ -144,8 +108,8 @@ export class RelyingParty {
         }
 
         let currentProvider = providers[providerIndex];
-        if (stateless) {
-          const url = await requestAuthentication(currentProvider, null, returnUrl, realm, immediate, extensions).catch(chooseProvider);
+        if (rp.stateless) {
+          const url = await rp.#requestAuthentication(currentProvider, null, immediate).catch(chooseProvider);
 
           if (!url) {
             return;
@@ -154,7 +118,7 @@ export class RelyingParty {
           return chooseProvider(undefined, url);
         }
 
-        const answer = await rp.#associate(currentProvider, strict).catch(chooseProvider);
+        const answer = await rp.#associate(currentProvider).catch(chooseProvider);
 
         if (!answer) {
           return;
@@ -166,8 +130,7 @@ export class RelyingParty {
           });
         }
 
-        const url = await requestAuthentication(currentProvider, answer.assoc_handle, returnUrl,
-          realm, immediate, extensions || {}).catch(chooseProvider);
+        const url = await rp.#requestAuthentication(currentProvider, answer.assoc_handle, immediate).catch(chooseProvider);
 
         if (url) {
           chooseProvider(undefined, url);
@@ -176,7 +139,8 @@ export class RelyingParty {
     })
   }
 
-  async #verifyAssertion(requestOrUrl: RequestOrUrl, originalReturnUrl: string, stateless: boolean, extensions: Extension[] = [], strict: boolean): Promise<{ authenticated: boolean }> {
+  async #verifyAssertion(requestOrUrl: RequestOrUrl): Promise<AssertionResponse> {
+    console.log(55);
     return new Promise(async (resolve, reject) => {
       if (isRequest(requestOrUrl)) {
         if (requestOrUrl.method.toUpperCase() == 'POST') {
@@ -188,9 +152,18 @@ export class RelyingParty {
               data += chunk;
             });
 
-            requestOrUrl.on('end', () => {
+            requestOrUrl.on('end', async () => {
               let params = (new URLSearchParams(data));
-              return resolve(this.#verifyAssertionData(params, stateless, extensions, strict));
+
+              let assertResponse = await this.#verifyAssertionData(params).catch((e) => {
+                return reject(e);
+              });
+
+              if (!assertResponse) {
+                return;
+              }
+
+              return resolve(assertResponse);
             });
           } else {
             return reject({ message: 'Invalid POST response from OpenID provider' });
@@ -203,21 +176,38 @@ export class RelyingParty {
       }
 
       let assertionUrl: URL;
-      if (isRequest(requestOrUrl)) {
-        assertionUrl = new URL(requestOrUrl.url);
-      } else {
-        assertionUrl = requestOrUrl instanceof URL ? requestOrUrl : new URL(requestOrUrl);
-      }
-
-      if (!this.#verifyReturnUrl(assertionUrl, new URL(originalReturnUrl))) {
+      try {
+        if (isRequest(requestOrUrl)) {
+          assertionUrl = new URL(requestOrUrl.url);
+        } else if (requestOrUrl instanceof URL) {
+          assertionUrl = requestOrUrl;
+        } else {
+          console.log(3, requestOrUrl)
+          assertionUrl = new URL(requestOrUrl);
+        }
+      } catch (_) {
         return reject({ message: 'Invalid return URL' });
       }
 
-      resolve(await this.#verifyAssertionData(assertionUrl.searchParams, stateless, extensions, strict));
+      console.log(1, this.returnUrl);
+      console.log(2, new URL(this.returnUrl));
+      if (!verifyReturnUrl(assertionUrl, new URL(this.returnUrl))) {
+        return reject({ message: 'Invalid return URL' });
+      }
+
+      let assertResponse = await this.#verifyAssertionData(assertionUrl.searchParams).catch((e) => {
+        reject(e);
+      });
+
+      if (!assertResponse) {
+        return;
+      }
+
+      return resolve(assertResponse);
     })
   }
 
-  async #discover(abnormalIdentifier: string, strict: boolean): Promise<Provider[]> {
+  async #discover(abnormalIdentifier: string): Promise<Provider[]> {
     let identifier = normalizeIdentifier(abnormalIdentifier);
     if (!identifier) {
       throw { message: 'Invalid identifier' };
@@ -240,7 +230,7 @@ export class RelyingParty {
       })
 
       if (!providers.length) {
-        const providers = await resolveHostMeta(identifier, strict).catch(_ => {
+        const providers = await this.#resolveHostMeta(identifier).catch(_ => {
           return [] as Provider[];
         })
 
@@ -252,8 +242,7 @@ export class RelyingParty {
     // Add claimed identifier to providers with local identifiers
     // and OpenID 1.0/1.1 providers to ensure correct resolution 
     // of identities and services
-    for (let i = 0, len = providers.length; i < len; ++i) {
-      let provider = providers[i];
+    for (let provider of providers) {
       if (!provider.claimedIdentifier &&
         (provider.localIdentifier || provider.version.indexOf('2.0') === -1)) {
         provider.claimedIdentifier = identifier;
@@ -263,7 +252,7 @@ export class RelyingParty {
     return providers;
   }
 
-  async #associate(provider: Provider, strict: boolean, algorithm = 'DH-SHA256'): Promise<Record<string, string>> {
+  async #associate(provider: Provider, algorithm = 'DH-SHA256'): Promise<Record<string, string>> {
     let params = generateAssociationRequestParameters(provider.version, algorithm);
     if (!algorithm) {
       algorithm = 'DH-SHA256';
@@ -272,9 +261,9 @@ export class RelyingParty {
     let dh: crypto.DiffieHellman | undefined = undefined;
     if (!algorithm.includes('no-encryption')) {
       dh = createDiffieHellmanKeyExchange(algorithm);
-      params['openid.dh_modulus'] = bigIntToBase64(dh.getPrime('binary'));
-      params['openid.dh_gen'] = bigIntToBase64(dh.getGenerator('binary'));
-      params['openid.dh_consumer_public'] = bigIntToBase64(dh.getPublicKey('binary'));
+      params.set('openid.dh_modulus', bigIntToBase64(dh.getPrime('binary')));
+      params.set('openid.dh_gen', bigIntToBase64(dh.getGenerator('binary')));
+      params.set('openid.dh_consumer_public', bigIntToBase64(dh.getPublicKey('binary')));
     }
 
     const { data: responseData, status } = await post(provider.endpoint, params).catch(_ => {
@@ -293,13 +282,13 @@ export class RelyingParty {
 
     if (data.error_code === 'unsupported-type' || !data.ns) {
       if (algorithm === 'DH-SHA1') {
-        if (strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0) {
+        if (this.strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0) {
           throw { message: 'Channel is insecure and no encryption method is supported by provider' };
         } else {
-          return openid.associate(provider, strict, 'no-encryption-256');
+          return this.#associate(provider, 'no-encryption-256');
         }
       } else if (algorithm === 'no-encryption-256') {
-        if (strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0) {
+        if (this.strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0) {
           throw { message: 'Channel is insecure and no encryption method is supported by provider' }
         }
         /*else if(provider.version.indexOf('2.0') === -1)
@@ -315,10 +304,10 @@ export class RelyingParty {
           callback({ message: 'Provider is OpenID 1.0/1.1 and does not support OpenID 1.0/1.1 association.' });
         }*/
         else {
-          return this.#associate(provider, strict, 'no-encryption');
+          return this.#associate(provider, 'no-encryption');
         }
       } else if (algorithm === 'DH-SHA256') {
-        return this.#associate(provider, strict, 'DH-SHA1');
+        return this.#associate(provider, 'DH-SHA1');
       }
     }
 
@@ -351,30 +340,67 @@ export class RelyingParty {
     return data;
   }
 
-  #verifyReturnUrl(assertionUrl: URL, originalReturnUrl: URL) {
-    let receivedReturnUrl = new URL(assertionUrl.searchParams.get('openid.return_to') ?? '');
-    if (!receivedReturnUrl) {
-      return false;
+  async #requestAuthentication(provider: Provider, assoc_handle: string | null, immediate: Boolean) {
+    let params: Record<string, string> = {
+      'openid.mode': immediate ? 'checkid_immediate' : 'checkid_setup'
+    };
+
+    if (provider.version.indexOf('2.0') !== -1) {
+      params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
     }
 
-    if (originalReturnUrl.protocol !== receivedReturnUrl.protocol || // Verify scheme against original return URL
-      originalReturnUrl.host !== receivedReturnUrl.host || // Verify authority against original return URL
-      originalReturnUrl.pathname !== receivedReturnUrl.pathname) { // Verify path against current request URL
-      return false;
-    }
+    for (let extension of this.extensions) {
+      for (let key in extension.requestParams) {
+        if (!hasOwnProperty(extension.requestParams, key)) {
+          continue;
+        }
 
-    // Any query parameters that are present in the "openid.return_to" URL MUST also be present 
-    // with the same values in the URL of the HTTP request the RP received
-    for (const param of receivedReturnUrl.searchParams.keys()) {
-      if (receivedReturnUrl.searchParams.get(param) !== assertionUrl.searchParams.get(param)) {
-        return false;
+        params[key] = extension.requestParams[key];
       }
     }
 
-    return true;
+    if (provider.claimedIdentifier) {
+      params['openid.claimed_id'] = provider.claimedIdentifier;
+      if (provider.localIdentifier) {
+        params['openid.identity'] = provider.localIdentifier;
+      } else {
+        params['openid.identity'] = provider.claimedIdentifier;
+      }
+    } else if (provider.version.indexOf('2.0') !== -1) {
+      params['openid.claimed_id'] = params['openid.identity'] =
+        'http://specs.openid.net/auth/2.0/identifier_select';
+    } else {
+      throw { message: 'OpenID 1.0/1.1 provider cannot be used without a claimed identifier' };
+    }
+
+    if (assoc_handle) {
+      params['openid.assoc_handle'] = assoc_handle;
+    }
+
+    if (this.returnUrl) {
+      // Value should be missing if RP does not want
+      // user to be sent back
+      params['openid.return_to'] = this.returnUrl;
+    }
+
+    if (this.realm) {
+      if (provider.version.indexOf('2.0') !== -1) {
+        params['openid.realm'] = this.realm;
+      } else {
+        params['openid.trust_root'] = this.realm;
+      }
+    } else if (!this.returnUrl) {
+      throw { message: 'No return URL or realm specified' };
+    }
+
+
+
+    let url = buildUrl(provider.endpoint, params);
+
+    return url;
   }
 
-  async #verifyAssertionData(params: URLSearchParams, stateless: boolean, extensions: Extension[], strict: boolean) {
+  async #verifyAssertionData(params: URLSearchParams) {
     let assertionError = this.#getAssertionError(params);
     if (assertionError) {
       throw { message: assertionError };
@@ -388,10 +414,10 @@ export class RelyingParty {
       throw { message: 'Invalid or replayed nonce' };
     }
 
-    return await this.#verifyDiscoveredInformation(params, stateless, extensions, strict);
+    return await this.#verifyDiscoveredInformation(params);
   };
 
-  async #verifyDiscoveredInformation(params: URLSearchParams, stateless: boolean, extensions: Extension[], strict: boolean): Promise<AssertionResponse> {
+  async #verifyDiscoveredInformation(params: URLSearchParams): Promise<AssertionResponse> {
     let claimedIdentifier = params.get('openid.claimed_id');
     let useLocalIdentifierAsKey = false;
     if (!claimedIdentifier) {
@@ -410,10 +436,55 @@ export class RelyingParty {
 
     if (useLocalIdentifierAsKey) {
       claimedIdentifier = params.get('openid.identity');
+
+      // If validityChecks are enabled, check that the identity is valid
+      if (this.validityChecks && claimedIdentifier !== null) {
+        let invalidCount = 0;
+
+        for (let identity of this.validityChecks.identity) {
+          if (!claimedIdentifier.startsWith(identity)) {
+            invalidCount++
+          }
+        }
+
+        if (this.validityChecks.identity.length === invalidCount) {
+          throw { message: 'Identifier failed to pass validity checks' }
+        }
+      }
+    } else {
+      // If validityChecks are enabled, check that the claimed_id is valid
+      if (this.validityChecks && claimedIdentifier !== null) {
+        let invalidCount = 0;
+
+        for (let identity of this.validityChecks.claimed_id) {
+          if (!claimedIdentifier.startsWith(identity)) {
+            invalidCount++
+          }
+        }
+
+        if (this.validityChecks.claimed_id.length === invalidCount) {
+          throw { message: 'Claimed identifier failed to pass validity checks' }
+        }
+      }
     }
 
     if (!claimedIdentifier) {
       throw { message: 'No claimed identifier found.' }
+    }
+
+    // Check that ns and op_endpoint passed validity checks if enabled
+    if (this.validityChecks) {
+      const ns = params.get('openid.ns');
+
+      if (ns !== null && !this.validityChecks.ns.includes(ns)) {
+        throw { message: 'NS failed to pass validity checks' }
+      }
+
+      const op_endpoint = params.get('openid.op_endpoint');
+
+      if (op_endpoint !== null && !this.validityChecks.op_endpoint.includes(op_endpoint)) {
+        throw { message: ' failed to pass validity checks' }
+      }
     }
 
     claimedIdentifier = this.#getCanonicalClaimedIdentifier(claimedIdentifier);
@@ -421,21 +492,21 @@ export class RelyingParty {
     const provider = this.#loadDiscoveredInformation(claimedIdentifier);
 
     if (provider) {
-      return this.#verifyAssertionAgainstProviders([provider], params, stateless, extensions);
+      return this.#verifyAssertionAgainstProviders([provider], params);
     } else if (useLocalIdentifierAsKey) {
       throw { message: 'OpenID 1.0/1.1 response received, but no information has been discovered about the provider. It is likely that this is a fraudulent authentication response.' };
     }
 
-    const providers = await this.#discover(claimedIdentifier, strict).catch(() => {})
+    const providers = await this.#discover(claimedIdentifier).catch(() => { })
 
     if (!providers || !providers.length) {
       throw { message: 'No OpenID provider was discovered for the asserted claimed identifier' };
     }
 
-    return await this.#verifyAssertionAgainstProviders(providers, params, stateless, extensions);
+    return await this.#verifyAssertionAgainstProviders(providers, params);
   }
 
-  async #verifyAssertionAgainstProviders(providers: Provider[], params: URLSearchParams, stateless: boolean, extensions: Extension[]) {
+  async #verifyAssertionAgainstProviders(providers: Provider[], params: URLSearchParams) {
     for (let provider of providers) {
       if (!!params.get('openid.ns') && (!provider.version || provider.version.indexOf(params.get('openid.ns') ?? 'null') !== 0)) {
         continue;
@@ -463,15 +534,11 @@ export class RelyingParty {
         throw { message: 'Identity in assertion response does not match discovered local identifier' };
       }
 
-      let result = await this.#checkSignature(params, provider, stateless);
+      let result = await this.#checkSignature(params, provider);
 
-      if (extensions && result.authenticated) {
-        for (let ext in extensions) {
-          if (!hasOwnProperty(extensions, ext)) {
-            continue;
-          }
-          let instance = extensions[ext];
-          instance.fillResult(params, result);
+      if (this.extensions && result.authenticated) {
+        for (let extension of this.extensions) {
+          extension.fillResult(params, result);
         }
       }
 
@@ -494,8 +561,10 @@ export class RelyingParty {
   }
 
   #invalidateAssociationHandleIfRequested(params: URLSearchParams) {
-    if (params.get('is_valid') === 'true' && params.get('openid.invalidate_handle')) {
-      if (!openid.removeAssociation(params.get('openid.invalidate_handle'))) {
+    const invalidate_handle = params.get('openid.invalidate_handle');
+
+    if (params.get('is_valid') === 'true' && invalidate_handle !== null) {
+      if (!this.#removeAssociation(invalidate_handle)) {
         return false;
       }
     }
@@ -516,13 +585,13 @@ export class RelyingParty {
     return claimedIdentifier;
   }
 
-  async #checkSignature(params: URLSearchParams, provider: Provider, stateless: boolean): Promise<AssertionResponse> {
+  async #checkSignature(params: URLSearchParams, provider: Provider): Promise<AssertionResponse> {
     if (!params.get('openid.signed') ||
       !params.get('openid.sig')) {
       throw { message: 'No signature in response' };
     }
 
-    if (stateless) {
+    if (this.stateless) {
       return await this.#checkSignatureUsingProvider(params, provider);
     } else {
       return this.#checkSignatureUsingAssociation(params);
@@ -575,17 +644,16 @@ export class RelyingParty {
   }
 
   async #checkSignatureUsingProvider(params: URLSearchParams, provider: Provider) {
-    let requestParams: Record<string, string> =
-    {
-      'openid.mode': 'check_authentication'
-    };
+    let requestParams: URLSearchParams = new URLSearchParams();
+
+    requestParams.set('openid.mode', 'check_authentication');
 
     params.forEach((value, key) => {
       if (key === 'openid.mode') {
         return;
       }
 
-      requestParams[key] = value;
+      requestParams.set(key, value);
     })
 
     const { data: responseData, status } = await post(params.get('openid.ns') ? (params.get('openid.op_endpoint') || provider.endpoint) : provider.endpoint, requestParams);
@@ -594,6 +662,7 @@ export class RelyingParty {
       throw { message: 'Invalid assertion response from provider' };
     } else {
       let data = decodePostData(responseData);
+
       if (data['is_valid'] == 'true') {
         return {
           authenticated: true,
@@ -603,7 +672,55 @@ export class RelyingParty {
         throw { message: 'Invalid signature' };
       }
     }
+  }
 
+  #resolveHostMeta(identifier: string, fallBackToProxy = false): Promise<Provider[]> {
+    return new Promise<Provider[]>(async (resolve, reject) => {
+      let host = new URL(identifier);
+      let hostMetaUrl;
+      if (fallBackToProxy && !this.strict) {
+        hostMetaUrl = 'https://www.google.com/accounts/o8/.well-known/host-meta?hd=' + host.host;
+      } else {
+        hostMetaUrl = host.protocol + '//' + host.host + '/.well-known/host-meta';
+      }
+
+      if (!hostMetaUrl) {
+        return reject(null);
+      } else {
+        const { data, status } = await get(hostMetaUrl).catch(_ => {
+          throw null;
+        });
+
+        if (status != 200) {
+          if (!fallBackToProxy && !this.strict) {
+            const providers = await this.#resolveHostMeta(identifier, true).catch(_ => {
+              throw null;
+            });
+
+            return resolve(providers);
+          }
+
+          return reject(null);
+        } else {
+          // Attempt to parse the data but if this fails it may be because
+          // the response to hostMetaUrl was some other http/html resource.
+          // Therefore fallback to the proxy if no providers are found.
+          const providers = await parseHostMeta(data).catch(_ => {
+            throw null;
+          });
+
+          if (providers.length == 0 && !fallBackToProxy && !this.strict) {
+            const providers = await this.#resolveHostMeta(identifier, true).catch(_ => {
+              throw null;
+            })
+
+            return resolve(providers);
+          } else {
+            return resolve(providers);
+          }
+        }
+      }
+    })
   }
 
   #checkNonce(params: URLSearchParams) {
@@ -669,7 +786,13 @@ export class RelyingParty {
   }
 
   #removeAssociation(handle: string) {
-    delete this.#associations[handle];
+    if (this.#associations[handle]) {
+      delete this.#associations[handle];
+
+      return true;
+    }
+
+    return false;
   }
 
   #saveDiscoveredInformation(key: string, provider: Provider) {
@@ -727,30 +850,51 @@ function xor(a: string, b: string) {
 
 function buildUrl(url: string, params?: Record<string, string>): string {
   if (params) {
-    const search = (new URLSearchParams(params)).toString();
+    const search = '?' + (new URLSearchParams(params)).toString();
 
     return new URL(search, url).toString();
   }
 
   return url;
 }
+
+function verifyReturnUrl(assertionUrl: URL, originalReturnUrl: URL) {
+  let receivedReturnUrl = new URL(assertionUrl.searchParams.get('openid.return_to') ?? '');
+  if (!receivedReturnUrl) {
+    return false;
+  }
+
+  if (originalReturnUrl.protocol !== receivedReturnUrl.protocol || // Verify scheme against original return URL
+    originalReturnUrl.host !== receivedReturnUrl.host || // Verify authority against original return URL
+    originalReturnUrl.pathname !== receivedReturnUrl.pathname) { // Verify path against current request URL
+    return false;
+  }
+
+  // Any query parameters that are present in the "openid.return_to" URL MUST also be present 
+  // with the same values in the URL of the HTTP request the RP received
+  for (const param of receivedReturnUrl.searchParams.keys()) {
+    if (receivedReturnUrl.searchParams.get(param) !== assertionUrl.searchParams.get(param)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function decodePostData(data: string) {
   let lines = data.split('\n');
   let result: Record<string, string> = {};
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
+  for (let line of lines) {
     if (line.length > 0 && line[line.length - 1] == '\r') {
       line = line.substring(0, line.length - 1);
     }
 
-    let colonIndex = line.indexOf(':');
-    if (colonIndex === -1) {
+    if (!line.includes(':')) {
       continue;
     }
 
-    // Check that this works correctly
-    let key = line.substring(0, colonIndex - 1);
-    let value = line.substring(colonIndex + 1);
+    let [key, value] = line.split(/:(.*)/);
+
     result[key] = value;
   }
 
@@ -779,7 +923,7 @@ function normalizeIdentifier(identifier: string) {
 }
 
 async function parseXrds(xrdsUrl: string, xrdsData: string) {
-  let services = xrds.parse(xrdsData);
+  let services = xrdsParse(xrdsData);
   if (services == null) {
     throw null;
   }
@@ -888,6 +1032,7 @@ async function parseHostMeta(hostMeta: string) {
 
 async function resolveXri(xriUrl: string, hops = 1) {
   return new Promise<Provider[]>(async (resolve, reject) => {
+
     if (hops >= 5) {
       return reject(null);
     }
@@ -966,103 +1111,6 @@ function resolveHtml(identifier: string, hops = 1, data?: any) {
   })
 }
 
-async function resolveHostMeta(identifier: string, strict: boolean, fallBackToProxy = false): Promise<Provider[]> {
-  return new Promise<Provider[]>(async (resolve, reject) => {
-    let host = new URL(identifier);
-    let hostMetaUrl;
-    if (fallBackToProxy && !strict) {
-      hostMetaUrl = 'https://www.google.com/accounts/o8/.well-known/host-meta?hd=' + host.host;
-    } else {
-      hostMetaUrl = host.protocol + '//' + host.host + '/.well-known/host-meta';
-    }
-
-    if (!hostMetaUrl) {
-      return reject(null);
-    } else {
-      const { data, status } = await get(hostMetaUrl).catch(_ => {
-        throw null;
-      });
-
-      if (status != 200) {
-        if (!fallBackToProxy && !strict) {
-          const providers = await resolveHostMeta(identifier, strict, true).catch(_ => {
-            throw null;
-          });
-
-          return resolve(providers);
-        }
-
-        return reject(null);
-      } else {
-        // Attempt to parse the data but if this fails it may be because
-        // the response to hostMetaUrl was some other http/html resource.
-        // Therefore fallback to the proxy if no providers are found.
-        const providers = await parseHostMeta(data).catch(_ => {
-          throw null;
-        });
-
-        if (providers.length == 0 && !fallBackToProxy && !strict) {
-          const providers = await resolveHostMeta(identifier, strict, true).catch(_ => {
-            throw null;
-          })
-
-          return resolve(providers);
-        } else {
-          return resolve(providers);
-        }
-      }
-    }
-  })
-}
-
-openid.discover = async function (abnormalIdentifier: string, strict: boolean): Promise<Provider[]> {
-  return new Promise(async (resolve, reject) => {
-    let identifier = normalizeIdentifier(abnormalIdentifier);
-    if (!identifier) {
-      return reject({ message: 'Invalid identifier' });
-    }
-
-    if (identifier.indexOf('http') !== 0) {
-      // XRDS
-      identifier = 'https://xri.net/' + identifier + '?_xrd_r=application/xrds%2Bxml';
-    }
-
-    // Try XRDS/Yadis discovery
-    const providers = await resolveXri(identifier).catch(_ => {
-      return [] as Provider[];
-    });
-
-    if (!providers.length) {
-      // Fallback to HTML discovery
-      const providers = await resolveHtml(identifier).catch(_ => {
-        return [] as Provider[];
-      })
-
-      if (!providers.length) {
-        const providers = await resolveHostMeta(identifier, strict).catch(_ => {
-          return [] as Provider[];
-        })
-
-        return providers;
-      }
-
-      return providers;
-    }
-    // Add claimed identifier to providers with local identifiers
-    // and OpenID 1.0/1.1 providers to ensure correct resolution 
-    // of identities and services
-    for (let i = 0, len = providers.length; i < len; ++i) {
-      let provider = providers[i];
-      if (!provider.claimedIdentifier &&
-        (provider.localIdentifier || provider.version.indexOf('2.0') === -1)) {
-        provider.claimedIdentifier = identifier;
-      }
-    }
-
-    return providers;
-  })
-}
-
 function createDiffieHellmanKeyExchange(algorithm?: string) {
   let defaultPrime = 'ANz5OguIOXLsDhmYmsWizjEOHTdxfo2Vcbt2I3MYZuYe91ouJ4mLBX+YkcLiemOcPym2CBRYHNOyyjmG0mg3BVd9RcLn5S3IHHoXGHblzqdLFEi/368Ygo79JRnxTkXjgmY0rxlJ5bU1zIKaSDuKdiI+XUkKJX8Fvf8W8vsixYOr';
 
@@ -1074,369 +1122,35 @@ function createDiffieHellmanKeyExchange(algorithm?: string) {
 }
 
 function generateAssociationRequestParameters(version: string, algorithm: string) {
-  let params: Record<string, string> = {
+  let params: URLSearchParams = new URLSearchParams({
     'openid.mode': 'associate',
-  };
+  });
 
   if (version.indexOf('2.0') !== -1) {
-    params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
+    params.set('openid.ns', 'http://specs.openid.net/auth/2.0');
   }
 
   if (algorithm === 'DH-SHA1') {
-    params['openid.assoc_type'] = 'HMAC-SHA1';
-    params['openid.session_type'] = 'DH-SHA1';
+    params.set('openid.assoc_type', 'HMAC-SHA1');
+    params.set('openid.session_type', 'DH-SHA1');
   } else if (algorithm === 'no-encryption-256') {
     if (version.indexOf('2.0') === -1) {
-      params['openid.session_type'] = ''; // OpenID 1.0/1.1 requires blank
-      params['openid.assoc_type'] = 'HMAC-SHA1';
+      params.set('openid.session_type', ''); // OpenID 1.0/1.1 requires blank
+      params.set('openid.assoc_type', 'HMAC-SHA1');
     } else {
-      params['openid.session_type'] = 'no-encryption';
-      params['openid.assoc_type'] = 'HMAC-SHA256';
+      params.set('openid.session_type', 'no-encryption');
+      params.set('openid.assoc_type', 'HMAC-SHA256');
     }
   } else if (algorithm == 'no-encryption') {
     if (version.indexOf('2.0') !== -1) {
-      params['openid.session_type'] = 'no-encryption';
+      params.set('openid.session_type', 'no-encryption');
     }
-    params['openid.assoc_type'] = 'HMAC-SHA1';
+
+    params.set('openid.assoc_type', 'HMAC-SHA1');
   } else {
-    params['openid.assoc_type'] = 'HMAC-SHA256';
-    params['openid.session_type'] = 'DH-SHA256';
+    params.set('openid.assoc_type', 'HMAC-SHA256');
+    params.set('openid.session_type', 'DH-SHA256');
   }
 
   return params;
-}
-
-function requestAuthentication(provider: Provider, assoc_handle: string | null, returnUrl: string, realm: Realm, immediate: Boolean, extensions: Extension[]) {
-  return new Promise<string>((resolve, reject) => {
-    let params: Record<string, string> = {
-      'openid.mode': immediate ? 'checkid_immediate' : 'checkid_setup'
-    };
-
-    if (provider.version.indexOf('2.0') !== -1) {
-      params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
-    }
-
-    for (let extension of extensions) {
-      for (let key in extension.requestParams) {
-        if (!hasOwnProperty(extension.requestParams, key)) {
-          continue;
-        }
-
-        params[key] = extension.requestParams[key];
-      }
-    }
-
-    if (provider.claimedIdentifier) {
-      params['openid.claimed_id'] = provider.claimedIdentifier;
-      if (provider.localIdentifier) {
-        params['openid.identity'] = provider.localIdentifier;
-      } else {
-        params['openid.identity'] = provider.claimedIdentifier;
-      }
-    } else if (provider.version.indexOf('2.0') !== -1) {
-      params['openid.claimed_id'] = params['openid.identity'] =
-        'http://specs.openid.net/auth/2.0/identifier_select';
-    } else {
-      return reject({ message: 'OpenID 1.0/1.1 provider cannot be used without a claimed identifier' });
-    }
-
-    if (assoc_handle) {
-      params['openid.assoc_handle'] = assoc_handle;
-    }
-
-    if (returnUrl) {
-      // Value should be missing if RP does not want
-      // user to be sent back
-      params['openid.return_to'] = returnUrl;
-    }
-
-    if (realm) {
-      if (provider.version.indexOf('2.0') !== -1) {
-        params['openid.realm'] = realm;
-      } else {
-        params['openid.trust_root'] = realm;
-      }
-    } else if (!returnUrl) {
-      return reject({ message: 'No return URL or realm specified' });
-    }
-
-    resolve(buildUrl(provider.endpoint, params));
-  })
-}
-
-/* ==================================================================
- * Extensions
- * ================================================================== 
- */
-
-function _getExtensionAlias(params, ns) {
-  for (let k in params)
-    if (params[k] == ns)
-      return k.replace("openid.ns.", "");
-}
-
-/* 
- * Simple Registration Extension
- * http://openid.net/specs/openid-simple-registration-extension-1_1-01.html
- */
-
-let sreg_keys = ['nickname', 'email', 'fullname', 'dob', 'gender', 'postcode', 'country', 'language', 'timezone'];
-
-openid.SimpleRegistration = function SimpleRegistration(options) {
-  this.requestParams = { 'openid.ns.sreg': 'http://openid.net/extensions/sreg/1.1' };
-  if (options.policy_url)
-    this.requestParams['openid.sreg.policy_url'] = options.policy_url;
-  let required = [];
-  let optional = [];
-  for (let i = 0; i < sreg_keys.length; i++) {
-    let key = sreg_keys[i];
-    if (options[key]) {
-      if (options[key] == 'required') {
-        required.push(key);
-      }
-      else {
-        optional.push(key);
-      }
-    }
-    if (required.length) {
-      this.requestParams['openid.sreg.required'] = required.join(',');
-    }
-    if (optional.length) {
-      this.requestParams['openid.sreg.optional'] = optional.join(',');
-    }
-  }
-};
-
-openid.SimpleRegistration.prototype.fillResult = function (params, result) {
-  let extension = _getExtensionAlias(params, 'http://openid.net/extensions/sreg/1.1') || 'sreg';
-  for (let i = 0; i < sreg_keys.length; i++) {
-    let key = sreg_keys[i];
-    if (params['openid.' + extension + '.' + key]) {
-      result[key] = params['openid.' + extension + '.' + key];
-    }
-  }
-};
-
-/* 
- * User Interface Extension
- * http://svn.openid.net/repos/specifications/user_interface/1.0/trunk/openid-user-interface-extension-1_0.html 
- */
-openid.UserInterface = function UserInterface(options) {
-  if (typeof (options) != 'object') {
-    options = { mode: options || 'popup' };
-  }
-
-  this.requestParams = { 'openid.ns.ui': 'http://specs.openid.net/extensions/ui/1.0' };
-  for (let k in options) {
-    this.requestParams['openid.ui.' + k] = options[k];
-  }
-};
-
-openid.UserInterface.prototype.fillResult = function (params, result) {
-  // TODO: Fill results
-}
-
-/* 
- * Attribute Exchange Extension
- * http://openid.net/specs/openid-attribute-exchange-1_0.html 
- * Also see:
- *  - http://www.axschema.org/types/ 
- *  - http://code.google.com/intl/en-US/apis/accounts/docs/OpenID.html#Parameters
- */
-
-let attributeMapping =
-{
-  'http://axschema.org/contact/country/home': 'country'
-  , 'http://axschema.org/contact/email': 'email'
-  , 'http://axschema.org/namePerson/first': 'firstname'
-  , 'http://axschema.org/pref/language': 'language'
-  , 'http://axschema.org/namePerson/last': 'lastname'
-  // The following are not in the Google document:
-  , 'http://axschema.org/namePerson/friendly': 'nickname'
-  , 'http://axschema.org/namePerson': 'fullname'
-};
-
-openid.AttributeExchange = function AttributeExchange(options) {
-  this.requestParams = {
-    'openid.ns.ax': 'http://openid.net/srv/ax/1.0',
-    'openid.ax.mode': 'fetch_request'
-  };
-  let required = [];
-  let optional = [];
-  for (let ns in options) {
-    if (!hasOwnProperty(options, ns)) { continue; }
-    if (options[ns] == 'required') {
-      required.push(ns);
-    }
-    else {
-      optional.push(ns);
-    }
-  }
-  let self = this;
-  required = required.map(function (ns, i) {
-    let attr = attributeMapping[ns] || 'req' + i;
-    self.requestParams['openid.ax.type.' + attr] = ns;
-    return attr;
-  });
-  optional = optional.map(function (ns, i) {
-    let attr = attributeMapping[ns] || 'opt' + i;
-    self.requestParams['openid.ax.type.' + attr] = ns;
-    return attr;
-  });
-  if (required.length) {
-    this.requestParams['openid.ax.required'] = required.join(',');
-  }
-  if (optional.length) {
-    this.requestParams['openid.ax.if_available'] = optional.join(',');
-  }
-}
-
-openid.AttributeExchange.prototype.fillResult = function (params, result) {
-  let extension = _getExtensionAlias(params, 'http://openid.net/srv/ax/1.0') || 'ax';
-  let regex = new RegExp('^openid\\.' + extension + '\\.(value|type|count)\\.(\\w+)(\\.(\\d+)){0,1}$');
-  let aliases = {};
-  let counters = {};
-  let values = {};
-  for (let k in params) {
-    if (!hasOwnProperty(params, k)) { continue; }
-    let matches = k.match(regex);
-    if (!matches) {
-      continue;
-    }
-    if (matches[1] == 'type') {
-      aliases[params[k]] = matches[2];
-    }
-    else if (matches[1] == 'count') {
-      //counter sanitization
-      let count = parseInt(params[k], 10);
-
-      // values number limitation (potential attack by overflow ?)
-      counters[matches[2]] = (count < AX_MAX_VALUES_COUNT) ? count : AX_MAX_VALUES_COUNT;
-    }
-    else {
-      if (matches[3]) {
-        //matches multi-value, aka "count" aliases
-
-        //counter sanitization
-        let count = parseInt(matches[4], 10);
-
-        // "in bounds" verification
-        if (count > 0 && count <= (counters[matches[2]] || AX_MAX_VALUES_COUNT)) {
-          if (!values[matches[2]]) {
-            values[matches[2]] = [];
-          }
-          values[matches[2]][count - 1] = params[k];
-        }
-      }
-      else {
-        //matches single-value aliases
-        values[matches[2]] = params[k];
-      }
-    }
-  }
-  for (let ns in aliases) {
-    if (aliases[ns] in values) {
-      result[aliases[ns]] = values[aliases[ns]];
-      result[ns] = values[aliases[ns]];
-    }
-  }
-}
-
-openid.OAuthHybrid = function (options) {
-  this.requestParams = {
-    'openid.ns.oauth': 'http://specs.openid.net/extensions/oauth/1.0',
-    'openid.oauth.consumer': options['consumerKey'],
-    'openid.oauth.scope': options['scope']
-  };
-}
-
-openid.OAuthHybrid.prototype.fillResult = function (params, result) {
-  let extension = _getExtensionAlias(params, 'http://specs.openid.net/extensions/oauth/1.0') || 'oauth'
-    , token_attr = 'openid.' + extension + '.request_token';
-
-
-  if (params[token_attr] !== undefined) {
-    result['request_token'] = params[token_attr];
-  }
-};
-
-/* 
- * Provider Authentication Policy Extension (PAPE)
- * http://openid.net/specs/openid-provider-authentication-policy-extension-1_0.html
- * 
- * Note that this extension does not validate that the provider is obeying the
- * authentication request, it only allows the request to be made.
- *
- * TODO: verify requested 'max_auth_age' against response 'auth_time'
- * TODO: verify requested 'auth_level.ns.<cust>' (etc) against response 'auth_level.ns.<cust>'
- * TODO: verify requested 'preferred_auth_policies' against response 'auth_policies'
- *
- */
-
-/* Just the keys that aren't open to customisation */
-let pape_request_keys = ['max_auth_age', 'preferred_auth_policies', 'preferred_auth_level_types'];
-let pape_response_keys = ['auth_policies', 'auth_time']
-
-/* Some short-hand mappings for auth_policies */
-let papePolicyNameMap =
-{
-  'phishing-resistant': 'http://schemas.openid.net/pape/policies/2007/06/phishing-resistant',
-  'multi-factor': 'http://schemas.openid.net/pape/policies/2007/06/multi-factor',
-  'multi-factor-physical': 'http://schemas.openid.net/pape/policies/2007/06/multi-factor-physical',
-  'none': 'http://schemas.openid.net/pape/policies/2007/06/none'
-}
-
-openid.PAPE = function PAPE(options) {
-  this.requestParams = { 'openid.ns.pape': 'http://specs.openid.net/extensions/pape/1.0' };
-  for (let k in options) {
-    if (k === 'preferred_auth_policies') {
-      this.requestParams['openid.pape.' + k] = _getLongPolicyName(options[k]);
-    } else {
-      this.requestParams['openid.pape.' + k] = options[k];
-    }
-  }
-  let util = require('util');
-};
-
-/* you can express multiple pape 'preferred_auth_policies', so replace each
- * with the full policy URI as per papePolicyNameMapping. 
- */
-function _getLongPolicyName(policyNames) {
-  let policies = policyNames.split(' ');
-  for (let i = 0; i < policies.length; i++) {
-    if (policies[i] in papePolicyNameMap) {
-      policies[i] = papePolicyNameMap[policies[i]];
-    }
-  }
-  return policies.join(' ');
-}
-
-function _getShortPolicyName(policyNames) {
-  let policies = policyNames.split(' ');
-  for (let i = 0; i < policies.length; i++) {
-    for (shortName in papePolicyNameMap) {
-      if (papePolicyNameMap[shortName] === policies[i]) {
-        policies[i] = shortName;
-      }
-    }
-  }
-  return policies.join(' ');
-}
-
-openid.PAPE.prototype.fillResult = function (params, result) {
-  let extension = _getExtensionAlias(params, 'http://specs.openid.net/extensions/pape/1.0') || 'pape';
-  let paramString = 'openid.' + extension + '.';
-  let thisParam;
-  for (let p in params) {
-    if (hasOwnProperty(params, p)) {
-      if (p.substr(0, paramString.length) === paramString) {
-        thisParam = p.substr(paramString.length);
-        if (thisParam === 'auth_policies') {
-          result[thisParam] = _getShortPolicyName(params[p]);
-        } else {
-          result[thisParam] = params[p];
-        }
-      }
-    }
-  }
 }
