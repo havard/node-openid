@@ -26,17 +26,15 @@
 const { RelyingParty } = require('../dist/cjs/index.js');
 jest.useFakeTimers();
 
-test('Identifier without OpenID providers', () => {
-  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
+const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
 
+test('Identifier without OpenID providers', () => {
   rp.authenticate('http://example.com/verify', false).catch((error) => {
     expect(error.message).toBe('No providers found for the given identifier');
   })
 });
 
 test('Empty identifier', () => {
-  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
-
   rp.authenticate('', true).catch((error) => {
     expect(error.message).toBe('Invalid identifier');
   })
@@ -56,8 +54,6 @@ test('Empty identifier', () => {
 
 
 test('Resolve login.ubuntu.com', () => {
-  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
-
   rp.authenticate('https://login.ubuntu.com/', false).then((url) => {
     expect(url).toBeTruthy();
     expect(typeof url).toBe('string');
@@ -67,8 +63,6 @@ test('Resolve login.ubuntu.com', () => {
 });
 
 test('Resolve LiveJournal user', () => {
-  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
-
   rp.authenticate('http://omnifarious.livejournal.com/', false).then((url) => {
     expect(url).toBeTruthy();
     expect(typeof url).toBe('string');
@@ -78,8 +72,6 @@ test('Resolve LiveJournal user', () => {
 });
 
 test('Resolve OpenID 1.1 provider', () => {
-  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
-
   // FIXME: relying on a third party for back-level protocol support is brittle.
   rp.discover('http://pupeno.com/').then((providers) => {
     expect(providers.length).toBe(1);
@@ -91,8 +83,6 @@ test('Resolve OpenID 1.1 provider', () => {
 
 const performAssociation = (url, version) => {
   return new Promise((resolve, reject) => {
-    const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
-
     rp.discover(url, true).then((providers) => {
       const provider = providers[0];
       rp.associate(provider).then((result) => {
@@ -125,8 +115,6 @@ test('Associate with http://omnifarious.livejournal.com/', async () => {
 });
 
 test('Immediate authentication with https://login.ubuntu.com', () => {
-  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
-
   rp.authenticate('https://login.ubuntu.com', true).then((url) => {
     expect(url.indexOf('checkid_immediate')).not.toBe(-1);
   }).catch(error => {
@@ -135,8 +123,6 @@ test('Immediate authentication with https://login.ubuntu.com', () => {
 });
 
 test('Setup authentication with https://login.ubuntu.com', () => {
-  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
-
   rp.authenticate('https://login.ubuntu.com', false).then((url) => {
     expect(url.indexOf('checkid_setup')).not.toBe(-1);
   }).catch(error => {
