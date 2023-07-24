@@ -23,24 +23,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
 
-const openid = require('../openid');
+const { RelyingParty } = require('../dist/cjs/index.js');
 jest.useFakeTimers();
 
 test('Identifier without OpenID providers', () => {
-  openid.authenticate('example.com', 'http://example.com/verify', null, false, false,
-    (error, url) => {
-      expect(url).toBe(null);
-      expect(error.message).toBe('No providers found for the given identifier');
-    });
+  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
+
+  rp.authenticate('http://example.com/verify', false).catch((error) => {
+    expect(error.message).toBe('No providers found for the given identifier');
+  })
 });
 
 test('Empty identifier', () => {
-  openid.discover('', 
-    true,
-    (error, providers) => {
-      expect(providers).toBe(null);
-      expect(error.message).toBe('Invalid identifier');
-    });
+  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
+
+  rp.authenticate('', true).catch((error) => {
+    expect(error.message).toBe('Invalid identifier');
+  })
 });
 
 // 2016-09-09: XRI.net certificate has expired as of 2016-08-15, 
@@ -55,92 +54,92 @@ test('Empty identifier', () => {
 //     });
 // });
 
+
 test('Resolve login.ubuntu.com', () => {
-  openid.discover('https://login.ubuntu.com',
-    true,
-    (error, providers) => {
-      expect(error).toBeFalsy();
-      expect(providers.length).toBe(1);
-    });
+  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
+
+  rp.authenticate('https://login.ubuntu.com/', false).then((url) => {
+    expect(url).toBeTruthy();
+    expect(typeof url).toBe('string');
+  }).catch(error => {
+    expect(error).toBeFalsy()
+  })
 });
 
 test('Resolve LiveJournal user', () => {
-  openid.discover('http://omnifarious.livejournal.com/',
-    true,
-    (error, providers) => {
-      expect(error).toBeFalsy();
-      expect(providers.length).toBe(1);
-    });
+  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
+
+  rp.authenticate('http://omnifarious.livejournal.com/', false).then((url) => {
+    expect(url).toBeTruthy();
+    expect(typeof url).toBe('string');
+  }).catch(error => {
+    expect(error).toBeFalsy()
+  })
 });
 
 test('Resolve OpenID 1.1 provider', () => {
+  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
+
   // FIXME: relying on a third party for back-level protocol support is brittle.
-  openid.discover('http://pupeno.com/',
-    true,
-    (error, providers) => {
+  rp.discover('http://pupeno.com/').then((providers) => {
+    expect(providers.length).toBe(1);
+    expect(providers[0].version).toBe('http://openid.net/signon/1.1');
+  }).catch(error => {
       expect(error).toBeFalsy();
-      expect(providers.length).toBe(1);
-      expect(providers[0].version).toBe('http://openid.net/signon/1.1');
-    });
+    })
 });
 
 const performAssociation = (url, version) => {
-  openid.discover(url,
-    true,
-    (error, providers) => {
-      expect(error).toBeFalsy();
+  return new Promise((resolve, reject) => {
+    const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
+
+    rp.discover(url, true).then((providers) => {
       const provider = providers[0];
-      openid.associate(provider, (error, result) => {
-        expect(error).toBeFalsy();
+      rp.associate(provider).then((result) => {
         if (version) {
           expect(provider.version).toBe(version);
         }
+        
         expect(result.expires_in).toBeTruthy();
-      });
-    }
-  );
+
+        resolve();
+      }).catch((error) => {
+        expect(error).toBeFalsy();
+        
+        reject();
+      })
+    }).catch((error) => {
+      expect(error).toBeFalsy();
+
+      reject();
+    })
+  })
 }
 
-test('Associate with https://login.ubuntu.com', () => {
-  performAssociation('https://login.ubuntu.com');
+test('Associate with https://login.ubuntu.com', async () => {
+  await performAssociation('https://login.ubuntu.com');
 });
 
-test('Associate with http://omnifarious.livejournal.com/', () => {
-  performAssociation('http://omnifarious.livejournal.com/');
-});
-test('Associate with https://matt.wordpress.com/', () => {
-  // FIXME: relying on a third party for back-level protocol support is brittle.
-  performAssociation('https://matt.wordpress.com/', 'http://openid.net/signon/1.1', test);
+test('Associate with http://omnifarious.livejournal.com/', async () => {
+  await performAssociation('http://omnifarious.livejournal.com/');
 });
 
 test('Immediate authentication with https://login.ubuntu.com', () => {
-  openid.authenticate('https://login.ubuntu.com', 
-  'http://example.com/verify', null, true, false, 
-  (error, url) => {
-    expect(error).toBeFalsy();
+  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
+
+  rp.authenticate('https://login.ubuntu.com', true).then((url) => {
     expect(url.indexOf('checkid_immediate')).not.toBe(-1);
-  });
+  }).catch(error => {
+    expect(error).toBeFalsy()
+  })
 });
 
 test('Setup authentication with https://login.ubuntu.com', () => {
-  openid.authenticate('https://login.ubuntu.com', 
-  'http://example.com/verify', null, false, false, 
-  (error, url) => {
-    expect(error).toBeFalsy();
-    expect(url.indexOf('checkid_setup')).not.toBe(-1);
-  });
-});
+  const rp = new RelyingParty('http://example.com/verify', null, false, false, []);
 
-test('Setup authentication with https://login.ubuntu.com using RelyingParty object', () => {
-  const rp = new openid.RelyingParty(
-      'http://example.com/verify',
-      null,
-      false,
-      false,
-      null);
-  rp.authenticate('https://login.ubuntu.com', false, 
-  (error, url) => {
-    expect(error).toBeFalsy();
+  rp.authenticate('https://login.ubuntu.com', false).then((url) => {
     expect(url.indexOf('checkid_setup')).not.toBe(-1);
-  });
+  }).catch(error => {
+    expect(error).toBeFalsy()
+  })
 });

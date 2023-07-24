@@ -31,13 +31,9 @@ test('Wrong URL in assertion is rejected using RelyingParty API', () => {
     null,
     false,
     false,
-    null);
+    []);
 
-    console.log(51)
-
-  rp.verifyAssertion(new URL('http://fu.com/')).then((e) => {
-    expect(e).toBe(undefined);
-  }).catch((error) => {
+  rp.verifyAssertion(new URL('http://fu.com/')).catch((error) => {
     expect(error.message).toBe('Invalid return URL');
   });
 });

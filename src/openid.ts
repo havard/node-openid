@@ -27,7 +27,7 @@
  */
 
 import crypto from 'crypto';
-import { get, post } from './lib/http';
+import { Accept, get, post, undefinedAxiosResponse } from './lib/http';
 import { parse as xrdsParse } from './lib/xrds';
 import Extension from './extension';
 import { hasOwnProperty, isValidDate } from './lib/util';
@@ -63,23 +63,13 @@ export class RelyingParty {
     this.validityChecks = validityChecks;
   }
 
-  authenticate(identifier: string, immediate: boolean) {
-    return this.#authenticate(identifier, immediate);
-  }
-
-  /**
-   * 
-   * @param requestOrUrl node:http.ClientRequest or URL object or URL string.
-   * @returns 
-   */
-  verifyAssertion(requestOrUrl: RequestOrUrl) {
-    return this.#verifyAssertion(requestOrUrl);
-  }
-
-  async #authenticate(identifier: string, immediate: boolean) {
+  async authenticate(identifier: string, immediate: boolean) {
     return new Promise<string>(async (resolve, reject) => {
-      const providers = await this.#discover(identifier);
-      if (!providers || providers.length === 0) {
+      const providers = await this.#discover(identifier).catch((e) => {
+        reject(e);
+      });
+
+      if (providers === undefined || providers.length === 0) {
         return reject({ message: 'No providers found for the given identifier' });
       }
 
@@ -139,8 +129,12 @@ export class RelyingParty {
     })
   }
 
-  async #verifyAssertion(requestOrUrl: RequestOrUrl): Promise<AssertionResponse> {
-    console.log(55);
+  /**
+   * 
+   * @param requestOrUrl node:http.ClientRequest or URL object or URL string.
+   * @returns 
+   */
+  async verifyAssertion(requestOrUrl: RequestOrUrl): Promise<AssertionResponse> {
     return new Promise(async (resolve, reject) => {
       if (isRequest(requestOrUrl)) {
         if (requestOrUrl.method.toUpperCase() == 'POST') {
@@ -175,6 +169,7 @@ export class RelyingParty {
         }
       }
 
+      //@ts-ignore
       let assertionUrl: URL;
       try {
         if (isRequest(requestOrUrl)) {
@@ -182,16 +177,13 @@ export class RelyingParty {
         } else if (requestOrUrl instanceof URL) {
           assertionUrl = requestOrUrl;
         } else {
-          console.log(3, requestOrUrl)
           assertionUrl = new URL(requestOrUrl);
         }
-      } catch (_) {
-        return reject({ message: 'Invalid return URL' });
-      }
 
-      console.log(1, this.returnUrl);
-      console.log(2, new URL(this.returnUrl));
-      if (!verifyReturnUrl(assertionUrl, new URL(this.returnUrl))) {
+        if (!verifyReturnUrl(assertionUrl, new URL(this.returnUrl))) {
+          return reject({ message: 'Invalid return URL' });
+        }
+      } catch (_) {
         return reject({ message: 'Invalid return URL' });
       }
 
@@ -207,345 +199,392 @@ export class RelyingParty {
     })
   }
 
-  async #discover(abnormalIdentifier: string): Promise<Provider[]> {
-    let identifier = normalizeIdentifier(abnormalIdentifier);
-    if (!identifier) {
-      throw { message: 'Invalid identifier' };
-    }
+  /**
+   * This function is only available to be used by tests, as it can be accessed from outside but should not be visible.
+   * @param abnormalIdentifier 
+   * @returns 
+   */
+  private discover(abnormalIdentifier: string): Promise<Provider[]> {
+    return this.#discover(abnormalIdentifier);
+  }
 
-    if (identifier.indexOf('http') !== 0) {
-      // XRDS
-      identifier = 'https://xri.net/' + identifier + '?_xrd_r=application/xrds%2Bxml';
-    }
+  #discover(abnormalIdentifier: string) {
+    return new Promise<Provider[]>(async (resolve, reject) => {
+      let identifier = normalizeIdentifier(abnormalIdentifier);
+      if (!identifier) {
+        return reject({ message: 'Invalid identifier' });
+      }
 
-    // Try XRDS/Yadis discovery
-    const providers = await resolveXri(identifier).catch(_ => {
-      return [] as Provider[];
-    });
+      if (identifier.indexOf('http') !== 0) {
+        // XRDS
+        identifier = 'https://xri.net/' + identifier + '?_xrd_r=application/xrds%2Bxml';
+      }
 
-    if (!providers.length) {
-      // Fallback to HTML discovery
-      const providers = await resolveHtml(identifier).catch(_ => {
+      // Try XRDS/Yadis discovery
+      const providers = await resolveXri(identifier).catch(_ => {
         return [] as Provider[];
-      })
+      });
 
       if (!providers.length) {
-        const providers = await this.#resolveHostMeta(identifier).catch(_ => {
+        // Fallback to HTML discovery
+        const providers = await resolveHtml(identifier).catch(_ => {
           return [] as Provider[];
         })
 
-        return providers;
+        if (!providers.length) {
+          const providers = await this.#resolveHostMeta(identifier).catch(_ => {
+            return [] as Provider[];
+          })
+
+          return resolve(providers);
+        }
+
+        return resolve(providers);
       }
 
-      return providers;
-    }
-    // Add claimed identifier to providers with local identifiers
-    // and OpenID 1.0/1.1 providers to ensure correct resolution 
-    // of identities and services
-    for (let provider of providers) {
-      if (!provider.claimedIdentifier &&
-        (provider.localIdentifier || provider.version.indexOf('2.0') === -1)) {
-        provider.claimedIdentifier = identifier;
+      // Add claimed identifier to providers with local identifiers
+      // and OpenID 1.0/1.1 providers to ensure correct resolution 
+      // of identities and services
+      for (let provider of providers) {
+        if (!provider.claimedIdentifier &&
+          (provider.localIdentifier || provider.version.indexOf('2.0') === -1)) {
+          provider.claimedIdentifier = identifier;
+        }
       }
-    }
 
-    return providers;
+      return resolve(providers);
+    })
+  }
+
+  /**
+   * This function alias is only available to be used by tests, as it can be accessed from outside but should not be visible.
+   * @returns 
+   */
+  private associate(provider: Provider, algorithm = 'DH-SHA256'): Promise<Record<string, string>> {
+    return this.#associate(provider, algorithm);
   }
 
   async #associate(provider: Provider, algorithm = 'DH-SHA256'): Promise<Record<string, string>> {
-    let params = generateAssociationRequestParameters(provider.version, algorithm);
-    if (!algorithm) {
-      algorithm = 'DH-SHA256';
-    }
+    return new Promise(async (resolve, reject) => {
+      let params = generateAssociationRequestParameters(provider.version, algorithm);
+      if (!algorithm) {
+        algorithm = 'DH-SHA256';
+      }
 
-    let dh: crypto.DiffieHellman | undefined = undefined;
-    if (!algorithm.includes('no-encryption')) {
-      dh = createDiffieHellmanKeyExchange(algorithm);
-      params.set('openid.dh_modulus', bigIntToBase64(dh.getPrime('binary')));
-      params.set('openid.dh_gen', bigIntToBase64(dh.getGenerator('binary')));
-      params.set('openid.dh_consumer_public', bigIntToBase64(dh.getPublicKey('binary')));
-    }
+      let dh: crypto.DiffieHellman | undefined = undefined;
+      if (!algorithm.includes('no-encryption')) {
+        dh = createDiffieHellmanKeyExchange(algorithm);
+        params.set('openid.dh_modulus', bigIntToBase64(dh.getPrime('binary')));
+        params.set('openid.dh_gen', bigIntToBase64(dh.getGenerator('binary')));
+        params.set('openid.dh_consumer_public', bigIntToBase64(dh.getPublicKey('binary')));
+      }
 
-    const { data: responseData, status } = await post(provider.endpoint, params).catch(_ => {
-      throw {
-        message: 'HTTP request failed'
-      };
+      const { data: responseData, status } = await post(provider.endpoint, params).catch(_ => {
+        reject({ message: 'HTTP request failed' });
+
+        return undefinedAxiosResponse;
+      })
+
+      if (status !== 200 && status !== 400) {
+        return reject({ message: 'HTTP request failed' });
+      }
+
+      let data = decodePostData(responseData);
+
+      if (data.error_code === 'unsupported-type' || !data.ns) {
+        if (algorithm === 'DH-SHA1') {
+          if (this.strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0) {
+            return reject({ message: 'Channel is insecure and no encryption method is supported by provider' });
+          } else {
+            return resolve(this.#associate(provider, 'no-encryption-256'));
+          }
+        } else if (algorithm === 'no-encryption-256') {
+          if (this.strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0) {
+            return reject({ message: 'Channel is insecure and no encryption method is supported by provider' });
+          }
+          /*else if(provider.version.indexOf('2.0') === -1)
+          {
+            // 2011-07-22: This is an OpenID 1.0/1.1 provider which means
+            // HMAC-SHA1 has already been attempted with a blank session
+            // type as per the OpenID 1.0/1.1 specification.
+            // (See http://openid.net/specs/openid-authentication-1_1.html#mode_associate)
+            // However, providers like wordpress.com don't follow the 
+            // standard and reject these requests, but accept OpenID 2.0
+            // style requests without a session type, so we have to give
+            // those a shot as well.
+            callback({ message: 'Provider is OpenID 1.0/1.1 and does not support OpenID 1.0/1.1 association.' });
+          }*/
+          else {
+            return resolve(this.#associate(provider, 'no-encryption'));
+          }
+        } else if (algorithm === 'DH-SHA256') {
+          return resolve(this.#associate(provider, 'DH-SHA1'));
+        }
+      }
+
+      if (data.error) {
+        return reject({ message: data.error })
+      }
+
+      let hashAlgorithm = algorithm.indexOf('256') !== -1 ? 'sha256' : 'sha1';
+
+      let secret: string;
+      if (!dh) {
+        secret = data.mac_key;
+      } else {
+        let serverPublic = bigIntFromBase64(data.dh_server_public);
+        let sharedSecret = btwoc(dh.computeSecret(serverPublic, 'binary', 'binary'));
+        let hash = crypto.createHash(hashAlgorithm);
+        hash.update(Buffer.from(sharedSecret, 'binary'));
+        sharedSecret = hash.digest('binary');
+        let encMacKey = base64decode(data.enc_mac_key);
+
+        try {
+          secret = base64encode(xor(encMacKey, sharedSecret));
+        } catch (error) {
+          return reject(error as ErrorMessage);
+        }
+      }
+
+      if (!data.assoc_handle) {
+        return reject({ message: 'OpenID provider does not seem to support association; you need to use stateless mode' })
+      }
+
+      this.#saveAssociation(provider, hashAlgorithm,
+        data.assoc_handle, secret, parseInt(data.expires_in));
+
+      return resolve(data);
     })
+  }
 
-    if (status != 200 && status != 400) {
-      throw {
-        message: 'HTTP request failed'
+  async #requestAuthentication(provider: Provider, assoc_handle: string | null, immediate: Boolean): Promise<string> {
+    return new Promise((resolve, reject) => {
+      let params: Record<string, string> = {
+        'openid.mode': immediate ? 'checkid_immediate' : 'checkid_setup'
       };
-    }
 
-    let data = decodePostData(responseData);
-
-    if (data.error_code === 'unsupported-type' || !data.ns) {
-      if (algorithm === 'DH-SHA1') {
-        if (this.strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0) {
-          throw { message: 'Channel is insecure and no encryption method is supported by provider' };
-        } else {
-          return this.#associate(provider, 'no-encryption-256');
-        }
-      } else if (algorithm === 'no-encryption-256') {
-        if (this.strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0) {
-          throw { message: 'Channel is insecure and no encryption method is supported by provider' }
-        }
-        /*else if(provider.version.indexOf('2.0') === -1)
-        {
-          // 2011-07-22: This is an OpenID 1.0/1.1 provider which means
-          // HMAC-SHA1 has already been attempted with a blank session
-          // type as per the OpenID 1.0/1.1 specification.
-          // (See http://openid.net/specs/openid-authentication-1_1.html#mode_associate)
-          // However, providers like wordpress.com don't follow the 
-          // standard and reject these requests, but accept OpenID 2.0
-          // style requests without a session type, so we have to give
-          // those a shot as well.
-          callback({ message: 'Provider is OpenID 1.0/1.1 and does not support OpenID 1.0/1.1 association.' });
-        }*/
-        else {
-          return this.#associate(provider, 'no-encryption');
-        }
-      } else if (algorithm === 'DH-SHA256') {
-        return this.#associate(provider, 'DH-SHA1');
-      }
-    }
-
-    if (data.error) {
-      throw { message: data.error };
-    }
-
-    let hashAlgorithm = algorithm.indexOf('256') !== -1 ? 'sha256' : 'sha1';
-
-    let secret: string;
-    if (!dh) {
-      secret = data.mac_key;
-    } else {
-      let serverPublic = bigIntFromBase64(data.dh_server_public);
-      let sharedSecret = btwoc(dh.computeSecret(serverPublic, 'binary', 'binary'));
-      let hash = crypto.createHash(hashAlgorithm);
-      hash.update(Buffer.from(sharedSecret, 'binary'));
-      sharedSecret = hash.digest('binary');
-      let encMacKey = base64decode(data.enc_mac_key);
-      secret = base64encode(xor(encMacKey, sharedSecret));
-    }
-
-    if (!data.assoc_handle) {
-      throw { message: 'OpenID provider does not seem to support association; you need to use stateless mode' };
-    }
-
-    this.#saveAssociation(provider, hashAlgorithm,
-      data.assoc_handle, secret, parseInt(data.expires_in));
-
-    return data;
-  }
-
-  async #requestAuthentication(provider: Provider, assoc_handle: string | null, immediate: Boolean) {
-    let params: Record<string, string> = {
-      'openid.mode': immediate ? 'checkid_immediate' : 'checkid_setup'
-    };
-
-    if (provider.version.indexOf('2.0') !== -1) {
-      params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
-    }
-
-    for (let extension of this.extensions) {
-      for (let key in extension.requestParams) {
-        if (!hasOwnProperty(extension.requestParams, key)) {
-          continue;
-        }
-
-        params[key] = extension.requestParams[key];
-      }
-    }
-
-    if (provider.claimedIdentifier) {
-      params['openid.claimed_id'] = provider.claimedIdentifier;
-      if (provider.localIdentifier) {
-        params['openid.identity'] = provider.localIdentifier;
-      } else {
-        params['openid.identity'] = provider.claimedIdentifier;
-      }
-    } else if (provider.version.indexOf('2.0') !== -1) {
-      params['openid.claimed_id'] = params['openid.identity'] =
-        'http://specs.openid.net/auth/2.0/identifier_select';
-    } else {
-      throw { message: 'OpenID 1.0/1.1 provider cannot be used without a claimed identifier' };
-    }
-
-    if (assoc_handle) {
-      params['openid.assoc_handle'] = assoc_handle;
-    }
-
-    if (this.returnUrl) {
-      // Value should be missing if RP does not want
-      // user to be sent back
-      params['openid.return_to'] = this.returnUrl;
-    }
-
-    if (this.realm) {
       if (provider.version.indexOf('2.0') !== -1) {
-        params['openid.realm'] = this.realm;
-      } else {
-        params['openid.trust_root'] = this.realm;
+        params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
       }
-    } else if (!this.returnUrl) {
-      throw { message: 'No return URL or realm specified' };
-    }
 
+      for (let extension of this.extensions) {
+        for (let key in extension.requestParams) {
+          if (!hasOwnProperty(extension.requestParams, key)) {
+            continue;
+          }
 
+          params[key] = extension.requestParams[key];
+        }
+      }
 
-    let url = buildUrl(provider.endpoint, params);
+      if (provider.claimedIdentifier) {
+        params['openid.claimed_id'] = provider.claimedIdentifier;
+        if (provider.localIdentifier) {
+          params['openid.identity'] = provider.localIdentifier;
+        } else {
+          params['openid.identity'] = provider.claimedIdentifier;
+        }
+      } else if (provider.version.indexOf('2.0') !== -1) {
+        params['openid.claimed_id'] = params['openid.identity'] =
+          'http://specs.openid.net/auth/2.0/identifier_select';
+      } else {
+        return reject({ message: 'OpenID 1.0/1.1 provider cannot be used without a claimed identifier' })
+      }
 
-    return url;
+      if (assoc_handle) {
+        params['openid.assoc_handle'] = assoc_handle;
+      }
+
+      if (this.returnUrl) {
+        // Value should be missing if RP does not want
+        // user to be sent back
+        params['openid.return_to'] = this.returnUrl;
+      }
+
+      if (this.realm) {
+        if (provider.version.indexOf('2.0') !== -1) {
+          params['openid.realm'] = this.realm;
+        } else {
+          params['openid.trust_root'] = this.realm;
+        }
+      } else if (!this.returnUrl) {
+        return reject({ message: 'No return URL or realm specified' });
+      }
+
+      return resolve(buildUrl(provider.endpoint, params));
+    })
   }
 
-  async #verifyAssertionData(params: URLSearchParams) {
-    let assertionError = this.#getAssertionError(params);
-    if (assertionError) {
-      throw { message: assertionError };
-    }
+  #verifyAssertionData(params: URLSearchParams): Promise<AssertionResponse> {
+    return new Promise(async (resolve, reject) => {
+      let assertionError = this.#getAssertionError(params);
+      if (assertionError) {
+        return reject({ message: assertionError });
+      }
 
-    if (!this.#invalidateAssociationHandleIfRequested(params)) {
-      throw { message: 'Unable to invalidate association handle' };
-    }
+      if (!this.#invalidateAssociationHandleIfRequested(params)) {
+        return reject({ message: 'Unable to invalidate association handle' });
+      }
 
-    if (!this.#checkNonce(params)) {
-      throw { message: 'Invalid or replayed nonce' };
-    }
+      if (!this.#checkNonce(params)) {
+        return reject({ message: 'Invalid or replayed nonce' });
+      }
 
-    return await this.#verifyDiscoveredInformation(params);
+      let response = await this.#verifyDiscoveredInformation(params).catch((error: ErrorMessage) => {
+        reject(error);
+      });
+
+      if (response !== undefined) {
+        resolve(response);
+      }
+    })
   };
 
-  async #verifyDiscoveredInformation(params: URLSearchParams): Promise<AssertionResponse> {
-    let claimedIdentifier = params.get('openid.claimed_id');
-    let useLocalIdentifierAsKey = false;
-    if (!claimedIdentifier) {
-      if (!params.get('openid.ns')) {
-        // OpenID 1.0/1.1 response without a claimed identifier
-        // We need to load discovered information using the
-        // local identifier
-        useLocalIdentifierAsKey = true;
+  #verifyDiscoveredInformation(params: URLSearchParams) {
+    return new Promise<AssertionResponse>(async (resolve, reject) => {
+      let claimedIdentifier = params.get('openid.claimed_id');
+      let useLocalIdentifierAsKey = false;
+      if (!claimedIdentifier) {
+        if (!params.get('openid.ns')) {
+          // OpenID 1.0/1.1 response without a claimed identifier
+          // We need to load discovered information using the
+          // local identifier
+          useLocalIdentifierAsKey = true;
+        } else {
+          // OpenID 2.0+:
+          // If there is no claimed identifier, then the
+          // assertion is not about an identity
+          return resolve({ authenticated: false });
+        }
+      }
+
+      if (useLocalIdentifierAsKey) {
+        claimedIdentifier = params.get('openid.identity');
+
+        // If validityChecks are enabled, check that the identity is valid
+        if (this.validityChecks && claimedIdentifier !== null) {
+          let invalidCount = 0;
+
+          for (let identity of this.validityChecks.identity) {
+            if (!claimedIdentifier.startsWith(identity)) {
+              invalidCount++
+            }
+          }
+
+          if (this.validityChecks.identity.length === invalidCount) {
+            return reject({ message: 'Identifier failed to pass validity checks' });
+          }
+        }
       } else {
-        // OpenID 2.0+:
-        // If there is no claimed identifier, then the
-        // assertion is not about an identity
-        return { authenticated: false };
-      }
-    }
+        // If validityChecks are enabled, check that the claimed_id is valid
+        if (this.validityChecks && claimedIdentifier !== null) {
+          let invalidCount = 0;
 
-    if (useLocalIdentifierAsKey) {
-      claimedIdentifier = params.get('openid.identity');
+          for (let identity of this.validityChecks.claimed_id) {
+            if (!claimedIdentifier.startsWith(identity)) {
+              invalidCount++
+            }
+          }
 
-      // If validityChecks are enabled, check that the identity is valid
-      if (this.validityChecks && claimedIdentifier !== null) {
-        let invalidCount = 0;
-
-        for (let identity of this.validityChecks.identity) {
-          if (!claimedIdentifier.startsWith(identity)) {
-            invalidCount++
+          if (this.validityChecks.claimed_id.length === invalidCount) {
+            return reject({ message: 'Claimed identifier failed to pass validity checks' });
           }
         }
-
-        if (this.validityChecks.identity.length === invalidCount) {
-          throw { message: 'Identifier failed to pass validity checks' }
-        }
       }
-    } else {
-      // If validityChecks are enabled, check that the claimed_id is valid
-      if (this.validityChecks && claimedIdentifier !== null) {
-        let invalidCount = 0;
 
-        for (let identity of this.validityChecks.claimed_id) {
-          if (!claimedIdentifier.startsWith(identity)) {
-            invalidCount++
-          }
+      if (!claimedIdentifier) {
+        return reject({ message: 'No claimed identifier found.' });
+      }
+
+      // Check that ns and op_endpoint passed validity checks if enabled
+      if (this.validityChecks) {
+        const ns = params.get('openid.ns');
+
+        if (ns !== null && !this.validityChecks.ns.includes(ns)) {
+          return reject({ message: 'NS failed to pass validity checks' });
         }
 
-        if (this.validityChecks.claimed_id.length === invalidCount) {
-          throw { message: 'Claimed identifier failed to pass validity checks' }
+        const op_endpoint = params.get('openid.op_endpoint');
+
+        if (op_endpoint !== null && !this.validityChecks.op_endpoint.includes(op_endpoint)) {
+          return reject({ message: ' failed to pass validity checks' });
         }
       }
-    }
 
-    if (!claimedIdentifier) {
-      throw { message: 'No claimed identifier found.' }
-    }
+      claimedIdentifier = this.#getCanonicalClaimedIdentifier(claimedIdentifier);
 
-    // Check that ns and op_endpoint passed validity checks if enabled
-    if (this.validityChecks) {
-      const ns = params.get('openid.ns');
+      const provider = this.#loadDiscoveredInformation(claimedIdentifier);
 
-      if (ns !== null && !this.validityChecks.ns.includes(ns)) {
-        throw { message: 'NS failed to pass validity checks' }
+      if (provider) {
+        return resolve(this.#verifyAssertionAgainstProviders([provider], params));
+      } else if (useLocalIdentifierAsKey) {
+        return reject({ message: 'OpenID 1.0/1.1 response received, but no information has been discovered about the provider. It is likely that this is a fraudulent authentication response.' });
       }
 
-      const op_endpoint = params.get('openid.op_endpoint');
+      const providers = await this.#discover(claimedIdentifier).catch((error: ErrorMessage) => {
+        reject(error);
+      })
 
-      if (op_endpoint !== null && !this.validityChecks.op_endpoint.includes(op_endpoint)) {
-        throw { message: ' failed to pass validity checks' }
+      if (providers === undefined) {
+        return;
       }
-    }
 
-    claimedIdentifier = this.#getCanonicalClaimedIdentifier(claimedIdentifier);
+      if (!providers.length) {
+        return reject({ message: 'No OpenID provider was discovered for the asserted claimed identifier' });
+      }
 
-    const provider = this.#loadDiscoveredInformation(claimedIdentifier);
-
-    if (provider) {
-      return this.#verifyAssertionAgainstProviders([provider], params);
-    } else if (useLocalIdentifierAsKey) {
-      throw { message: 'OpenID 1.0/1.1 response received, but no information has been discovered about the provider. It is likely that this is a fraudulent authentication response.' };
-    }
-
-    const providers = await this.#discover(claimedIdentifier).catch(() => { })
-
-    if (!providers || !providers.length) {
-      throw { message: 'No OpenID provider was discovered for the asserted claimed identifier' };
-    }
-
-    return await this.#verifyAssertionAgainstProviders(providers, params);
+      return resolve(await this.#verifyAssertionAgainstProviders(providers, params));
+    });
   }
 
-  async #verifyAssertionAgainstProviders(providers: Provider[], params: URLSearchParams) {
-    for (let provider of providers) {
-      if (!!params.get('openid.ns') && (!provider.version || provider.version.indexOf(params.get('openid.ns') ?? 'null') !== 0)) {
-        continue;
-      }
-
-      if (!!provider.version && provider.version.includes('2.0')) {
-        let endpoint = params.get('openid.op_endpoint');
-        if (provider.endpoint != endpoint) {
+  #verifyAssertionAgainstProviders(providers: Provider[], params: URLSearchParams) {
+    return new Promise<AssertionResponse>(async (resolve, reject) => {
+      for (let provider of providers) {
+        if (!!params.get('openid.ns') && (!provider.version || provider.version.indexOf(params.get('openid.ns') ?? 'null') !== 0)) {
           continue;
         }
-        if (provider.claimedIdentifier) {
-          let p_claimed_id = params.get('openid.claimed_id');
-          if (!p_claimed_id) {
-            throw { message: 'Provider has claimedIdentifier but url lacks openid.claimed_id' }
-          }
 
-          let claimedIdentifier = this.#getCanonicalClaimedIdentifier(p_claimed_id);
-          if (provider.claimedIdentifier != claimedIdentifier) {
-            throw { message: 'Claimed identifier in assertion response does not match discovered claimed identifier' };
+        if (!!provider.version && provider.version.includes('2.0')) {
+          let endpoint = params.get('openid.op_endpoint');
+          if (provider.endpoint != endpoint) {
+            continue;
+          }
+          if (provider.claimedIdentifier) {
+            let p_claimed_id = params.get('openid.claimed_id');
+            if (!p_claimed_id) {
+              return reject({ message: 'Provider has claimedIdentifier but url lacks openid.claimed_id' });
+            }
+
+            let claimedIdentifier = this.#getCanonicalClaimedIdentifier(p_claimed_id);
+            if (provider.claimedIdentifier != claimedIdentifier) {
+              return reject({ message: 'Claimed identifier in assertion response does not match discovered claimed identifier' });
+            }
           }
         }
-      }
 
-      if (!!provider.localIdentifier && provider.localIdentifier != params.get('openid.identity')) {
-        throw { message: 'Identity in assertion response does not match discovered local identifier' };
-      }
-
-      let result = await this.#checkSignature(params, provider);
-
-      if (this.extensions && result.authenticated) {
-        for (let extension of this.extensions) {
-          extension.fillResult(params, result);
+        if (!!provider.localIdentifier && provider.localIdentifier != params.get('openid.identity')) {
+          return reject({ message: 'Identity in assertion response does not match discovered local identifier' });
         }
+
+        let result = await this.#checkSignature(params, provider).catch((error: ErrorMessage) => {
+          reject(error)
+        });
+
+        if (!result) {
+          return;
+        }
+
+        if (this.extensions && result.authenticated) {
+          for (let extension of this.extensions) {
+            extension.fillResult(params, result);
+          }
+        }
+
+        return resolve(result);
       }
 
-      return result;
-    }
-
-    throw { message: 'No valid providers were discovered for the asserted claimed identifier' };
+      return reject({ message: 'No valid providers were discovered for the asserted claimed identifier' });
+    });
   }
 
   #getAssertionError(params: URLSearchParams): string | null {
@@ -585,19 +624,34 @@ export class RelyingParty {
     return claimedIdentifier;
   }
 
-  async #checkSignature(params: URLSearchParams, provider: Provider): Promise<AssertionResponse> {
-    if (!params.get('openid.signed') ||
-      !params.get('openid.sig')) {
-      throw { message: 'No signature in response' };
-    }
+  #checkSignature(params: URLSearchParams, provider: Provider) {
+    return new Promise<AssertionResponse>(async (resolve, reject) => {
+      if (!params.get('openid.signed') || !params.get('openid.sig')) {
+        return reject({ message: 'No signature in response' });
+      }
 
-    if (this.stateless) {
-      return await this.#checkSignatureUsingProvider(params, provider);
-    } else {
-      return this.#checkSignatureUsingAssociation(params);
-    }
+      let assertionResponse: void | AssertionResponse = undefined;
+
+      if (this.stateless) {
+        assertionResponse = await this.#checkSignatureUsingProvider(params, provider).catch((error: ErrorMessage) => {
+          reject(error);
+        });
+      } else {
+        // Using try catch only due to not having a promise, otherwise avoid
+        try {
+          assertionResponse = this.#checkSignatureUsingAssociation(params);
+        } catch (error: unknown) {
+          reject(error as ErrorMessage);
+        }
+      }
+
+      if (assertionResponse) {
+        return resolve(assertionResponse);
+      }
+    });
   }
 
+  // Again, only use throw in non-promise functions
   #checkSignatureUsingAssociation(params: URLSearchParams) {
     const assocHandle = params.get('openid.assoc_handle');
     if (!assocHandle) {
@@ -644,40 +698,47 @@ export class RelyingParty {
   }
 
   async #checkSignatureUsingProvider(params: URLSearchParams, provider: Provider) {
-    let requestParams: URLSearchParams = new URLSearchParams();
+    return new Promise<AssertionResponse>(async (resolve, reject) => {
+      let requestParams: URLSearchParams = new URLSearchParams();
 
-    requestParams.set('openid.mode', 'check_authentication');
+      requestParams.set('openid.mode', 'check_authentication');
 
-    params.forEach((value, key) => {
-      if (key === 'openid.mode') {
-        return;
-      }
+      params.forEach((value, key) => {
+        if (key === 'openid.mode') {
+          return;
+        }
 
-      requestParams.set(key, value);
-    })
+        requestParams.set(key, value);
+      })
 
-    const { data: responseData, status } = await post(params.get('openid.ns') ? (params.get('openid.op_endpoint') || provider.endpoint) : provider.endpoint, requestParams);
+      const { data: responseData, status } = await post(params.get('openid.ns') ? (params.get('openid.op_endpoint') || provider.endpoint) : provider.endpoint, requestParams)
+        .catch((error: ErrorMessage) => {
+          reject(error);
 
-    if (status !== 200 || responseData == null) {
-      throw { message: 'Invalid assertion response from provider' };
-    } else {
-      let data = decodePostData(responseData);
+          return undefinedAxiosResponse;
+        })
 
-      if (data['is_valid'] == 'true') {
-        return {
-          authenticated: true,
-          claimedIdentifier: provider.version.indexOf('2.0') !== -1 ? params.get('openid.claimed_id') : params.get('openid.identity')
-        };
+      if (status !== 200 || responseData == null) {
+        return reject({ message: 'Invalid assertion response from provider' });
       } else {
-        throw { message: 'Invalid signature' };
+        let data = decodePostData(responseData);
+
+        if (data['is_valid'] == 'true') {
+          return resolve({
+            authenticated: true,
+            claimedIdentifier: provider.version.indexOf('2.0') !== -1 ? params.get('openid.claimed_id') : params.get('openid.identity')
+          });
+        } else {
+          return reject({ message: 'Invalid signature' });
+        }
       }
-    }
+    });
   }
 
   #resolveHostMeta(identifier: string, fallBackToProxy = false): Promise<Provider[]> {
     return new Promise<Provider[]>(async (resolve, reject) => {
       let host = new URL(identifier);
-      let hostMetaUrl;
+      let hostMetaUrl: string;
       if (fallBackToProxy && !this.strict) {
         hostMetaUrl = 'https://www.google.com/accounts/o8/.well-known/host-meta?hd=' + host.host;
       } else {
@@ -685,36 +746,48 @@ export class RelyingParty {
       }
 
       if (!hostMetaUrl) {
-        return reject(null);
+        return reject({ message: 'Invalid host meta identifier' });
       } else {
-        const { data, status } = await get(hostMetaUrl).catch(_ => {
-          throw null;
+        const { data, status } = await get(hostMetaUrl, [Accept.ANY]).catch(error => {
+          reject({ message: 'Failed to get hostMetaUrl' });
+
+          return undefinedAxiosResponse;
         });
 
         if (status != 200) {
           if (!fallBackToProxy && !this.strict) {
-            const providers = await this.#resolveHostMeta(identifier, true).catch(_ => {
-              throw null;
+            const providers = await this.#resolveHostMeta(identifier, true).catch((error: ErrorMessage) => {
+              reject(error);
             });
+
+            if (providers === undefined) {
+              return;
+            }
 
             return resolve(providers);
           }
 
-          return reject(null);
+          return reject({ message: 'resolveHostMeta recieved status code other than 200' });
         } else {
           // Attempt to parse the data but if this fails it may be because
           // the response to hostMetaUrl was some other http/html resource.
           // Therefore fallback to the proxy if no providers are found.
-          const providers = await parseHostMeta(data).catch(_ => {
-            throw null;
+          const providers = await parseHostMeta(data).catch((error: ErrorMessage) => {
+            reject(error);
           });
 
+          if (providers === undefined) {
+            return;
+          }
+
           if (providers.length == 0 && !fallBackToProxy && !this.strict) {
-            const providers = await this.#resolveHostMeta(identifier, true).catch(_ => {
-              throw null;
+            const providers = await this.#resolveHostMeta(identifier, true).catch((error: ErrorMessage) => {
+              reject(error);
             })
 
-            return resolve(providers);
+            if (providers !== undefined) {
+              return resolve(providers);
+            }
           } else {
             return resolve(providers);
           }
@@ -922,10 +995,10 @@ function normalizeIdentifier(identifier: string) {
   return 'http://' + identifier;
 }
 
-async function parseXrds(xrdsUrl: string, xrdsData: string) {
+function parseXrds(xrdsUrl: string, xrdsData: string) {
   let services = xrdsParse(xrdsData);
   if (services == null) {
-    throw null;
+    throw { message: 'No services found in xrds data' };
   }
 
   let providers: Provider[] = [];
@@ -985,98 +1058,122 @@ function matchLinkTag(html: string, rel: string) {
   return href[1];
 }
 
-async function parseHtml(htmlUrl: string, html: string, hops: number): Promise<Provider[]> {
-  let metaUrl = matchMetaTag(html);
-  if (metaUrl !== null) {
-    return resolveXri(metaUrl, hops + 1);
-  }
+function parseHtml(htmlUrl: string, html: string, hops: number): Promise<Provider[]> {
+  return new Promise<Provider[]>(async (resolve, reject) => {
+    let metaUrl = matchMetaTag(html);
+    if (metaUrl !== null) {
+      const providers = await resolveXri(metaUrl, hops + 1).catch((error: ErrorMessage) => {
+        reject(error);
+      });
 
-  let provider = matchLinkTag(html, 'openid2.provider');
-  if (provider == null) {
-    provider = matchLinkTag(html, 'openid.server');
-    if (provider == null) {
-      throw null;
+      if (providers === undefined) {
+        return;
+      }
+
+      return resolve(providers);
     }
 
-    let localId = matchLinkTag(html, 'openid.delegate');
-    return [{
-      version: 'http://openid.net/signon/1.1',
+    let provider = matchLinkTag(html, 'openid2.provider');
+    if (provider == null) {
+      provider = matchLinkTag(html, 'openid.server');
+      if (provider == null) {
+        return reject({ message: 'No provider found in parseHtml' });
+      }
+
+      let localId = matchLinkTag(html, 'openid.delegate');
+      return resolve([{
+        version: 'http://openid.net/signon/1.1',
+        endpoint: provider,
+        claimedIdentifier: htmlUrl,
+        localIdentifier: localId
+      }])
+    }
+
+    let localId = matchLinkTag(html, 'openid2.local_id');
+    return resolve([{
+      version: 'http://specs.openid.net/auth/2.0/signon',
       endpoint: provider,
       claimedIdentifier: htmlUrl,
       localIdentifier: localId
-    }]
-  }
-
-  let localId = matchLinkTag(html, 'openid2.local_id');
-  return [{
-    version: 'http://specs.openid.net/auth/2.0/signon',
-    endpoint: provider,
-    claimedIdentifier: htmlUrl,
-    localIdentifier: localId
-  }];
+    }]);
+  });
 }
 
-async function parseHostMeta(hostMeta: string) {
-  let match = /^Link: <([^\n\r]+?)>;/.exec(hostMeta);
-  if (match != null && match.length > 0) {
-    const xriUrl = match[1];
-    const providers = await resolveXri(xriUrl).catch(_ => {
-      throw null;
-    });
+function parseHostMeta(hostMeta: string) {
+  return new Promise<Provider[]>(async (resolve, reject) => {
+    let match = /^Link: <([^\n\r]+?)>;/.exec(hostMeta);
+    if (match != null && match.length > 0) {
+      const xriUrl = match[1];
+      const providers = await resolveXri(xriUrl).catch((error: ErrorMessage) => {
+        reject(error);
+      });
 
-    return providers;
-  } else {
-    throw null;
-  }
+      if (providers !== undefined) {
+        return resolve(providers);
+      }
+    } else {
+      return reject({ message: 'Invalid hostMeta' });
+    }
+  });
 }
 
 async function resolveXri(xriUrl: string, hops = 1) {
   return new Promise<Provider[]>(async (resolve, reject) => {
-
     if (hops >= 5) {
-      return reject(null);
+      return reject({ message: 'Too many hops specified in resolveXri' });
     }
 
-    const { data, headers, status } = await get(xriUrl).catch(_ => {
-      throw null;
+    const { data, headers, status } = await get(xriUrl, [Accept.XRDS, Accept.XML]).catch(_ => {
+      reject({ message: 'Failed to get xriUrl' });
+
+      return undefinedAxiosResponse;
     });
 
-    if (status != 200) {
-      return reject(null);
+    if (status !== 200) {
+      return reject({ message: 'resolveXri got status code other than 200' });
     }
 
-    let xrdsLocation = headers['x-xrds-location'];
-    if (xrdsLocation) {
-      const { data, status } = await get(xrdsLocation).catch(_ => {
-        throw null;
+    // Endpoint has XRDS (text/xml isn't standard, but some providers use it)
+    if (headers['content-type']?.includes('application/xrds+xml') || headers['content-type']?.includes('text/xml')) {
+      try {
+        const providers = parseXrds(xriUrl, data)
+
+        return resolve(providers);
+      } catch (error) {
+        return reject(error as ErrorMessage);
+      }
+    // Endpoint has HTML
+    } else if (headers['content-type']?.includes('text/html')) {
+      const providers = await resolveHtml(xriUrl, hops + 1, data).catch((error: ErrorMessage) => {
+        reject(error);
+      })
+
+      if (providers !== undefined) {
+        return resolve(providers);
+      }
+    // Endpoint redirects to other location for XRDS data
+    } else if (headers['x-xrds-location']) {
+      let xrdsLocation = headers['x-xrds-location'] ?? headers['X-XRDS-Location'];
+
+      const { data, status } = await get(xrdsLocation, [Accept.XRDS]).catch(_ => {
+        reject({ message: 'Failed to get xrds from header x-xrds-location' })
+
+        return undefinedAxiosResponse;
       });
 
       if (status !== 200) {
-        return reject(null);
+        return reject({ message: 'xrdsLocation got status code other than 200' });
       }
 
-      const providers = await parseXrds(xrdsLocation, data).catch(() => {
-        throw null;
-      });
-
-      return resolve(providers);
-    } else if (data != null) {
-      let contentType = headers['content-type'];
-      // text/xml is not compliant, but some hosting providers refuse header
-      // changes, so text/xml is encountered
-      if (contentType && (contentType.indexOf('application/xrds+xml') === 0 || contentType.indexOf('text/xml') === 0)) {
-        const providers = await parseXrds(xriUrl, data).catch(() => {
-          throw null;
-        })
+      try {
+        const providers = parseXrds(xrdsLocation, data);
 
         return resolve(providers);
+      } catch (error) {
+        return reject(error as ErrorMessage);
       }
-
-      const providers = await resolveHtml(xriUrl, hops + 1, data).catch(_ => {
-        throw null;
-      })
-
-      return resolve(providers);
+    } else {
+      return reject({ message: 'Invalid content-type provided by provider xri' })
     }
   })
 }
@@ -1084,30 +1181,38 @@ async function resolveXri(xriUrl: string, hops = 1) {
 function resolveHtml(identifier: string, hops = 1, data?: any) {
   return new Promise<Provider[]>(async (resolve, reject) => {
     if (hops >= 5) {
-      return reject(null);
+      return reject({ message: 'resolveHtml recieved too many hops' });
     }
 
     if (data == null) {
-      const { data, status } = await get(identifier).catch(_ => {
-        throw null;
+      const { data, status } = await get(identifier, [Accept.HTML]).catch(_ => {
+        reject({ message: 'resolveHtml failed to get identifier' });
+
+        return undefinedAxiosResponse;
       })
 
       if (status != 200 || data == null) {
-        reject(null);
+        return reject({ message: 'resolveHtml failed to get data' });
       }
 
-      const providers = await parseHtml(identifier, data, hops + 1).catch(_ => {
-        throw null;
+      const providers = await parseHtml(identifier, data, hops + 1).catch((error: ErrorMessage) => {
+        reject(error);
       })
+
+      if (providers === undefined) {
+        return;
+      }
 
       return resolve(providers);
     }
 
-    const providers = await parseHtml(identifier, data, hops).catch(_ => {
-      throw null;
+    const providers = await parseHtml(identifier, data, hops).catch((error: ErrorMessage) => {
+      reject(error);
     })
 
-    return resolve(providers);
+    if (providers !== undefined) {
+      return resolve(providers);
+    }
   })
 }
 

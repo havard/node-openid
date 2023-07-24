@@ -34,4 +34,3 @@ test('Cancelled verification does not authenticate', async () => {
         expect(e.message).toBe('Authentication cancelled');
     })
 });
-  

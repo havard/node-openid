@@ -25,15 +25,13 @@
 
 import axios, { AxiosResponse } from "axios";
 
-export async function get(getUrl: string, params?: URLSearchParams, redirects?: number): Promise<AxiosResponse<string>> {
-    return axios({
-        method: 'GET',
-        url: getUrl,
-        params,
+export async function get(getUrl: string, accepts: Accept[], params?: URLSearchParams, redirects?: number): Promise<AxiosResponse<string>> {
+    return axios.get(getUrl, {
+        params: params ?? new URLSearchParams(),
         maxRedirects: redirects ?? 5,
         responseType: 'text',
         headers: {
-            'Accept': 'application/xrds+xml,text/html,text/plain,*/*;q=0.9'
+            'Accept': accepts.join(',')
         }
     });
 };
@@ -50,3 +48,24 @@ export async function post(postUrl: string, data: URLSearchParams, redirects?: n
         }
     });
 };
+
+/**
+ * Used to properly handle errors so they don't go uncaught.
+ * Instead of catching axios errors and then throwing them again, 
+ * which won't be caught by superior functions, we simply return 
+ * this object and use that to check if the function succeeded, 
+ * and if not, then we halt the function.
+ */
+export const undefinedAxiosResponse = {
+    data: undefined,
+    headers: undefined,
+    status: undefined
+}
+
+export enum Accept {
+    XRDS = 'application/xrds+xml',
+    XML = 'text/xml',
+    HTML = 'text/html',
+    TEXT = 'text/plain',
+    ANY = '*/*'
+}

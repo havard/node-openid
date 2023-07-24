@@ -26,7 +26,10 @@
   },
   "scripts": {
     "build": "rimraf dist/* && tsc -p tsconfig.json && tsc -p build/tsconfig-cjs.json && node build/scripts/fixup",
-    "test": "jest --silent=false"
+    "test": "jest --verbose --runInBand --forceExit --silent=false"
+  },
+  "jest": {
+    "testEnvironment": "node"
   },
   "author": {
     "name": "Håvard Stranden",
@@ -38,7 +41,7 @@
     "typescript": "^5.1.6"
   },
   "dependencies": {
-    "axios": "^0.21.4"
+    "axios": "^0.27.2"
   },
   "engines": {
     "node": ">= 10.0.0"
