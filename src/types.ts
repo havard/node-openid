@@ -1,16 +1,16 @@
-export interface Request {
-    method: string;
-    url: string;
-    getHeader(header: string): string | number | string[] | undefined;
-    on(event: string, cb: (data: any) => void): void;
-}
+// export interface ExpressRequest {
+//     method: string;
+//     url: string;
+//     get(header: string): string | number | string[] | undefined;
+//     on(event: string, cb: (data: any) => void): void;
+// }
 
-export const isRequest = (b: any): b is Request => {
-    return (b as Request).method !== undefined &&
-        (b as Request).url !== undefined &&
-        typeof (b as Request).getHeader === 'function'
-        && typeof (b as Request).on === 'function';
-}
+// export const isRequest = (b: any): b is ExpressRequest => {
+//     return (b as Request).method !== undefined &&
+//         (b as Request).url !== undefined &&
+//         typeof (b as Request).getHeader === 'function'
+//         && typeof (b as Request).on === 'function';
+// }
 
 export interface ErrorMessage {
     message: string;
@@ -38,7 +38,7 @@ export interface Association {
     secret: string
 }
 
-export type RequestOrUrl = Request | URL | string;
+export type RequestOrUrl = /*ExpressRequest*/ | URL | string;
 
 export interface ValidityChecks {
     /**

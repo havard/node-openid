@@ -5,8 +5,9 @@ OpenID for Node.js is (yes, you guessed it) an OpenID implementation for Node.js
 Highlights and features include:
 
 - Full OpenID 1.0/1.1/2.0 compliant Relying Party (client) implementation
-- Very simple API
+- Easy to use API
 - Simple extension points for association state
+- Safety checks for which providers to use
 
 ## Download
 
@@ -14,95 +15,131 @@ The library can be [reviewed and retrieved from GitHub](http://github.com/havard
 
 ## Installation
 
-If you use [`npm`](http://npmjs.org), simply do `npm install openid`.
+If you use [`npm`](http://npmjs.org):
+```sh
+npm i openid
+```
 
-Otherwise, you can grab the code from [GitHub](https://github.com/havard/node-openid).
+If you use [`yarn`](https://yarnpkg.com/):
+```sh
+yarn add openid
+```
+
+If you use [`bun`](https://bun.sh/):
+```sh
+bun add openid
+```
+
+The package can then be imported using both commonjs (require) and es6 modules (import).
 
 ## Examples
 
-Here's a very simple server using OpenID for Node.js for authentication:
+Examples including extensions can be found in the [`samples`](tree/master/samples) folder in the GitHub repository.
 
-```javascript
-var openid = require('openid');
-var url = require('url');
-var querystring = require('querystring');
-var relyingParty = new openid.RelyingParty(
-    'http://example.com/verify', // Verification URL (yours)
-    null, // Realm (optional, specifies realm for OpenID authentication)
-    false, // Use stateless verification
-    false, // Strict mode
-    []); // List of extensions to enable and include
-
-
-var server = require('http').createServer(
-    function(req, res)
-    {
-        var parsedUrl = url.parse(req.url);
-        if(parsedUrl.pathname == '/authenticate')
-        { 
-          // User supplied identifier
-          var query = querystring.parse(parsedUrl.query);
-          var identifier = query.openid_identifier;
-
-          // Resolve identifier, associate, and build authentication URL
-          relyingParty.authenticate(identifier, false, function(error, authUrl)
-              {
-                if (error)
-                {
-                  res.writeHead(200);
-                  res.end('Authentication failed: ' + error.message);
-                }
-                else if (!authUrl)
-                {
-                  res.writeHead(200);
-                  res.end('Authentication failed');
-                }
-                else
-                {
-                  res.writeHead(302, { Location: authUrl });
-                  res.end();
-                }
-              });
-        }
-        else if(parsedUrl.pathname == '/verify')
-        {
-            // Verify identity assertion
-            // NOTE: Passing just the URL is also possible
-            relyingParty.verifyAssertion(req, function(error, result)
-            {
-              res.writeHead(200);
-              res.end(!error && result.authenticated 
-                  ? 'Success :)'
-                  : 'Failure :(');
-            });
-        }
-        else
-        {
-            // Deliver an OpenID form on all other URLs
-            res.writeHead(200);
-            res.end('<!DOCTYPE html><html><body>'
-                + '<form method="get" action="/authenticate">'
-                + '<p>Login using OpenID</p>'
-                + '<input name="openid_identifier" />'
-                + '<input type="submit" value="Login" />'
-                + '</form></body></html>');
-        }
-    });
-server.listen(80);
+## API  
+### RelyingParty  
+```js
+const rp = new RelyingParty(returnUrl, realm, stateless, strict, extensions, validityChecks?)
 ```
+* `returnUrl`: string  
+  * The URL to which openid authentication should return to.
+* `realm`: string | null  
+  * Can be either null or the url of the service that is requesting the user to identify themselves (your website most likely).
+* `stateless`: boolean
+  * Whether or not to use stateless authentication.
+* `strict`: boolean  
+  * Whether or not to use strict mode.
+* `extensions`: Extension[]  
+  * Array of extensions, can be empty.
+* `validityChecks`: ValidityChecks
+  * Refer to [ValidityChecks](#validitychecks)
+#### Methods
+##### authenticate()
+```js
+const authUrl = await rp.authenticate(identifier)
+```
+* `identifier`: string
+  * String identifier in the form of an URL from which the RelyingParty can find an openid provider.
+* `returns`: Promise\<string\>  
+  * URL that can be used to authenticate a user.
+* `throws`: ErrorMessage
+  * Refer to [ErrorMessage](#errormessage)
+##### verifyAssertion()
+```js
+const result = await rp.verifyAssertion(url)
+```
+* `url`: string | URL
+  * The url the user was redirected to by the openid provider, including query/search. Can be given as string or URL object.
+* `returns`: Promise\<AssertionResponse\>  
+  * Refer to [AssertionResponse](#assertionresponse)
+* `throws`: ErrorMessage
+  * Refer to [ErrorMessage](#errormessage)
+### Extension
+```js
+class MyExtension extends Extension {
+  fillResult(params, result) {
+    // Add implementation here
+  }
+}
+```
+Abstract class that can be implemented to create your own extensions. The only required method is fillResult, but you can also implement your own constructor.
 
-A more elaborate example including extensions can be found in `sample.js` in the GitHub repository.
+The following properties and methods are available on Extension:
+```ts
+requestParams: Record<string, string>;
 
+getHeader(header: string): string;
+
+static getExtensionAlias(params: URLSearchParams, ns: string): string;
+```
+### extensions
+```js
+{
+    AttributeExchange,
+    OAuthHybrid,
+    PAPE,
+    SimpleRegistration,
+    UserInterface
+}
+```
+An object containing all built-in extensions.
+## Types
+### ValidityChecks
+```ts
+{
+    /**
+     * Checks if ns is in this array
+     */
+    ns: string[],
+    /**
+     * Checks if claimed_id starts with any of these
+     */
+    claimed_id: string[],
+    /**
+     * Checks if identity starts with any of these
+     */
+    identity: string[],
+    /**
+     * Checks if op_endpoint is in this array
+     */
+    op_endpoint: string[]
+}
+```
+### AssertionResponse
+```ts
+
+```
 ## Supported Extensions
 This library comes with built-in support for the following OpenID extensions:
 
- - The Simple Registration (SREG) 1.1 extension is implemented as `openid.SimpleRegistration`.
- - The Attribute Exchange (AX) 1.0 extension is implemented as `openid.AttributeExchange`.
- - The OAuth 1.0 extension is implemented as `openid.OAuthHybrid`.
- - The User Interface 1.0 extension is implemented as `openid.UserInterface`.
- - The Provider Authentication Policy Extension 1.0 (PAPE) is implemented as `openid.pape`.
+ - The Simple Registration (SREG) 1.1 extension is implemented as `extensions.SimpleRegistration`.
+ - The Attribute Exchange (AX) 1.0 extension is implemented as `extensions.AttributeExchange`.
+ - The OAuth 1.0 extension is implemented as `extensions.OAuthHybrid`.
+ - The User Interface 1.0 extension is implemented as `extensions.UserInterface`.
+ - The Provider Authentication Policy Extension 1.0 (PAPE) is implemented as `extensions.pape`.
 
-## Storing association state
+## How does it work?  
+### Storing association state
 
 To provide a way to save/load association state, you need to mix-in two functions in
 the `openid` module:
@@ -112,7 +149,7 @@ the `openid` module:
 
 The `openid` module includes default implementations for these functions using a simple object to store the associations in-memory.
 
-## Caching discovered information
+### Caching discovered information
 
 The verification of a positive assertion (i.e. an authenticated user) can be sped up significantly by avoiding the need for additional provider discoveries when possible. In order to achieve, this speed-up, node-openid needs to cache its discovered providers. You can mix-in two functions to override the default cache, which is an in-memory cache utilizing a simple object store:
   
@@ -125,14 +162,7 @@ The verification of a positive assertion (i.e. an authenticated user) can be spe
       - When no provider is found for the identifier, `callback(null, null)` is called (i.e. it is not an error to not have any data to return).
       - When loading fails for some reason, `callback(error, null)` is called with `error` being an error string specifying why loading failed.
       - When loading succeeds, `callback(null, provider)` is called with the exact provider object that was previously stored using `saveDiscoveredInformation`.
-
-## Proxy Support
-`node-openid` makes HTTP and HTTPS requests during authentication. You can have these
-requests go through a proxy server, by using the following environment variables:
-
- - HTTP_PROXY_HOST and HTTP_PROXY_PORT control how http:// requests are sent
- - HTTPS_PROXY_HOST and HTTPS_PROXY_PORT control how https:// requests are sent
-
+  
 ## License
 
 OpenID for Node.js is licensed under the MIT license. See LICENSE for further details.

@@ -30,10 +30,10 @@ export default class SimpleRegistration extends Extension {
 
         let required = [];
         let optional = [];
-        for (let i = 0; i < this.sreg_keys.length; i++) {
-            let key = this.sreg_keys[i] as keyof SimpleRegistrationOptions;
-            if (options[key]) {
-                if (options[key] == 'required') {
+        for (let key in this.sreg_keys) {
+            type Key = keyof SimpleRegistrationOptions;
+            if (options[key as Key]) {
+                if (options[key as Key] == 'required') {
                     required.push(key);
                 } else {
                     optional.push(key);

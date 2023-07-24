@@ -25,7 +25,7 @@ app.get('/login/authenticate', async (request, response) => {
 
 app.get('/login/verify', async (request, response) => {
 	// Verify identity assertion
-	const result = await relyingParty.verifyAssertion(new URL(request.protocol + '://' + request.get('host') + request.originalUrl)).catch((error) => {
+	const result = await relyingParty.verifyAssertion(request.protocol + '://' + request.get('host') + request.originalUrl).catch((error) => {
         response.status(500).json(error);
     })
 

@@ -31,7 +31,7 @@ import { Accept, get, post, undefinedAxiosResponse } from './lib/http';
 import { parse as xrdsParse } from './lib/xrds';
 import Extension from './extension';
 import { hasOwnProperty, isValidDate } from './lib/util';
-import { Realm, Association, Provider, RequestOrUrl, ErrorMessage, AssertionResponse, isRequest, ValidityChecks } from './types';
+import { Realm, Association, Provider, RequestOrUrl, ErrorMessage, AssertionResponse, /*isRequest,*/ ValidityChecks } from './types';
 
 export class RelyingParty {
   readonly returnUrl: string;
@@ -136,7 +136,7 @@ export class RelyingParty {
    */
   async verifyAssertion(requestOrUrl: RequestOrUrl): Promise<AssertionResponse> {
     return new Promise(async (resolve, reject) => {
-      if (isRequest(requestOrUrl)) {
+      /*if (isRequest(requestOrUrl)) {
         if (requestOrUrl.method.toUpperCase() == 'POST') {
           if ((requestOrUrl.getHeader('content-type')?.toString() || '').toLowerCase().indexOf('application/x-www-form-urlencoded') === 0) {
             // POST response received
@@ -167,14 +167,13 @@ export class RelyingParty {
         } else if (requestOrUrl.method.toUpperCase() !== 'GET') {
           return reject({ message: 'Invalid request method from OpenID provider' });
         }
-      }
+      }*/
 
-      //@ts-ignore
       let assertionUrl: URL;
       try {
-        if (isRequest(requestOrUrl)) {
+        /*if (isRequest(requestOrUrl)) {
           assertionUrl = new URL(requestOrUrl.url);
-        } else if (requestOrUrl instanceof URL) {
+        } else*/ if (requestOrUrl instanceof URL) {
           assertionUrl = requestOrUrl;
         } else {
           assertionUrl = new URL(requestOrUrl);

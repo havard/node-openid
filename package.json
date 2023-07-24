@@ -26,7 +26,7 @@
   },
   "scripts": {
     "build": "rimraf dist/* && tsc -p tsconfig.json && tsc -p build/tsconfig-cjs.json && node build/scripts/fixup",
-    "test": "jest --verbose --runInBand --forceExit --silent=false"
+    "test": "jest --clearCache && jest --verbose --runInBand --forceExit --silent=false"
   },
   "jest": {
     "testEnvironment": "node"
@@ -36,7 +36,7 @@
     "email": "havard.stranden@gmail.com"
   },
   "devDependencies": {
-    "jest": "^26.6.3",
+    "jest": "^29.6.1",
     "rimraf": "^5.0.1",
     "typescript": "^5.1.6"
   },

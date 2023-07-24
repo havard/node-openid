@@ -3,7 +3,8 @@ import PAPE from "./extensions/PAPE";
 import SimpleRegistration from "./extensions/SimpleRegistration";
 import AttributeExchange from "./extensions/AttributeExchange";
 import UserInterface from "./extensions/UserInterface";
-import {RelyingParty as RelyingParty1} from './openid';
+import { RelyingParty as RelyingParty1 } from './openid';
+import Extension2 from './extension';
 
 export const RelyingParty = RelyingParty1;
 
@@ -11,6 +12,8 @@ export const RelyingParty = RelyingParty1;
  * Extensions
  * ================================================================== 
  */
+export const Extension = Extension2;
+
 export const extensions = {
     AttributeExchange,
     OAuthHybrid,
