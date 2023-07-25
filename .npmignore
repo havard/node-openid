@@ -2,9 +2,7 @@
 .gitattributes
 tsconfig.json
 package-lock.json
-yarn-error.log
 build/
 src/
-expressjs_sample/
+samples/
 test/
-sample.js

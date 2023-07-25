@@ -26,7 +26,7 @@
 const { RelyingParty, extensions} = require('openid');
 
 const PORT = 4004;
-const BASE_URL = 'https://example.com'; // The "base url" of your website
+const BASE_URL = 'https://example.com'; // The "base url" of your website, without an ending /
 
 const extensionList = [
   new extensions.UserInterface(),
