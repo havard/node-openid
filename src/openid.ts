@@ -32,6 +32,31 @@ import { parse as xrdsParse } from './lib/xrds';
 import Extension from './extension';
 import { hasOwnProperty, isValidDate } from './lib/util';
 import { Realm, Association, Provider, RequestOrUrl, ErrorMessage, AssertionResponse, /*isRequest,*/ ValidityChecks } from './types';
+import { Store } from './lib/store';
+
+class DefaultStore<Value> extends Store<string, Value> {
+  #data: Record<string, Value> = {};
+
+  getItem(key: string): Value {
+    return this.#data[key];
+  }
+
+  setItem(key: string, value: Value): this {
+    this.#data[key] = value;
+
+    return this;
+  }
+
+  removeItem(key: string): this {
+    delete this.#data[key];
+
+    return this;
+  }
+
+  getAll() {
+    return this.#data;
+  }
+}
 
 export class RelyingParty {
   readonly returnUrl: string;
@@ -41,9 +66,9 @@ export class RelyingParty {
   readonly extensions: Extension[];
   readonly validityChecks?: ValidityChecks;
 
-  #associations: Record<string, Association> = {};
-  #discoveries: Record<string, Provider> = {};
-  #nonces: Record<string, Date> = {};
+  #associations: Store<string, Association>;
+  #discoveries: Store<string, Provider>;
+  #nonces: Store<string, Date>;
 
   /**
    * 
@@ -54,13 +79,19 @@ export class RelyingParty {
    * @param extensions List of Extension(s) to enable and include
    * @param validityChecks Optional safety checks, recommended to turn on.
    */
-  constructor(returnUrl: string, realm: Realm, stateless: boolean, strict: boolean, extensions: Extension[], validityChecks?: ValidityChecks) {
+  constructor(returnUrl: string, realm: Realm, stateless: boolean, strict: boolean, extensions: Extension[], validityChecks?: ValidityChecks,
+    associationStore: Store<string, Association> = new DefaultStore<Association>,
+    discoveryStore: Store<string, Provider> = new DefaultStore<Provider>,
+    nonceStore: Store<string, Date> = new DefaultStore<Date>) {
     this.returnUrl = returnUrl;
     this.realm = realm || null;
     this.stateless = stateless;
     this.strict = strict;
     this.extensions = extensions;
     this.validityChecks = validityChecks;
+    this.#associations = associationStore;
+    this.#discoveries = discoveryStore;
+    this.#nonces = nonceStore;
   }
 
   async authenticate(identifier: string, immediate: boolean) {
@@ -84,7 +115,7 @@ export class RelyingParty {
           if (provider.claimedIdentifier) {
             let useLocalIdentifierAsKey = !provider.version.includes('2.0') && provider.localIdentifier && provider.claimedIdentifier != provider.localIdentifier;
 
-            rp.#saveDiscoveredInformation((useLocalIdentifierAsKey ? provider.localIdentifier : provider.claimedIdentifier) ?? '', provider)
+            await rp.#saveDiscoveredInformation((useLocalIdentifierAsKey ? provider.localIdentifier : provider.claimedIdentifier) ?? '', provider)
             return resolve(authUrl);
           } else if (provider.version.includes('2.0')) {
             return resolve(authUrl);
@@ -349,7 +380,7 @@ export class RelyingParty {
         return reject({ message: 'OpenID provider does not seem to support association; you need to use stateless mode' })
       }
 
-      this.#saveAssociation(provider, hashAlgorithm,
+      await this.#saveAssociation(provider, hashAlgorithm,
         data.assoc_handle, secret, parseInt(data.expires_in));
 
       return resolve(data);
@@ -421,11 +452,11 @@ export class RelyingParty {
         return reject({ message: assertionError });
       }
 
-      if (!this.#invalidateAssociationHandleIfRequested(params)) {
+      if (!await this.#invalidateAssociationHandleIfRequested(params)) {
         return reject({ message: 'Unable to invalidate association handle' });
       }
 
-      if (!this.#checkNonce(params)) {
+      if (!await this.#checkNonce(params)) {
         return reject({ message: 'Invalid or replayed nonce' });
       }
 
@@ -512,7 +543,7 @@ export class RelyingParty {
 
       claimedIdentifier = this.#getCanonicalClaimedIdentifier(claimedIdentifier);
 
-      const provider = this.#loadDiscoveredInformation(claimedIdentifier);
+      const provider = await this.#loadDiscoveredInformation(claimedIdentifier);
 
       if (provider) {
         return resolve(this.#verifyAssertionAgainstProviders([provider], params));
@@ -598,11 +629,11 @@ export class RelyingParty {
     return null;
   }
 
-  #invalidateAssociationHandleIfRequested(params: URLSearchParams) {
+  async #invalidateAssociationHandleIfRequested(params: URLSearchParams) {
     const invalidate_handle = params.get('openid.invalidate_handle');
 
     if (params.get('is_valid') === 'true' && invalidate_handle !== null) {
-      if (!this.#removeAssociation(invalidate_handle)) {
+      if (!await this.#removeAssociation(invalidate_handle)) {
         return false;
       }
     }
@@ -638,7 +669,7 @@ export class RelyingParty {
       } else {
         // Using try catch only due to not having a promise, otherwise avoid
         try {
-          assertionResponse = this.#checkSignatureUsingAssociation(params);
+          assertionResponse = await this.#checkSignatureUsingAssociation(params);
         } catch (error: unknown) {
           reject(error as ErrorMessage);
         }
@@ -651,13 +682,13 @@ export class RelyingParty {
   }
 
   // Again, only use throw in non-promise functions
-  #checkSignatureUsingAssociation(params: URLSearchParams) {
+  async #checkSignatureUsingAssociation(params: URLSearchParams) {
     const assocHandle = params.get('openid.assoc_handle');
     if (!assocHandle) {
       throw { message: 'No association handle in provider response. Find out whether the provider supports associations and/or use stateless mode.' };
     }
 
-    const association = this.#loadAssociation(assocHandle);
+    const association = await this.#loadAssociation(assocHandle);
     if (!association) {
       throw { message: 'Invalid association handle' };
     }
@@ -795,7 +826,7 @@ export class RelyingParty {
     })
   }
 
-  #checkNonce(params: URLSearchParams) {
+  async #checkNonce(params: URLSearchParams) {
     if (!params.get('openid.ns')) {
       return true; // OpenID 1.1 has no nonce
     }
@@ -820,7 +851,7 @@ export class RelyingParty {
     }
 
     // Remove old nonces from our store (nonces that are more skewed than 5 minutes)
-    this.#removeOldNonces();
+    await this.#removeOldNonces();
 
     // Check if nonce is skewed by more than 5 minutes
     if (Math.abs(new Date().getTime() - timestamp.getTime()) > 300000) {
@@ -828,38 +859,40 @@ export class RelyingParty {
     }
 
     // Check if nonce is replayed
-    if (this.#nonces[nonce]) {
+    if (await this.#nonces.getItem(nonce)) {
       return false;
     }
 
     // Store the nonce
-    this.#nonces[nonce] = timestamp;
+    await this.#nonces.setItem(nonce, timestamp);
     return true;
   }
 
-  #removeOldNonces() {
-    for (let nonce in this.#nonces) {
-      if (hasOwnProperty(this.#nonces, nonce) && Math.abs(new Date().getTime() - this.#nonces[nonce].getTime()) > 300000) {
-        delete this.#nonces[nonce];
+  async #removeOldNonces() {
+    const nonces = await this.#nonces.getAll();
+    for (let key of Object.keys(nonces)) {
+      const date = nonces[key];
+      if (date instanceof Date && Math.abs(new Date().getTime() - date.getTime()) > 300000) {
+        this.#nonces.removeItem(key);
       }
     }
   }
 
-  #saveAssociation(provider: Provider, type: string, handle: string, secret: string, expiry_time_in_seconds: number) {
+  async #saveAssociation(provider: Provider, type: string, handle: string, secret: string, expiry_time_in_seconds: number) {
     setTimeout(() => {
       this.#removeAssociation(handle);
     }, expiry_time_in_seconds * 1000);
 
-    this.#associations[handle] = { provider: provider, type: type, secret: secret };
+    await this.#associations.setItem(handle, { provider: provider, type: type, secret: secret });
   }
 
-  #loadAssociation(handle: string) {
-    return this.#associations[handle] ?? null;
+  async #loadAssociation(handle: string) {
+    return await this.#associations.getItem(handle) ?? null;
   }
 
-  #removeAssociation(handle: string) {
-    if (this.#associations[handle]) {
-      delete this.#associations[handle];
+  async #removeAssociation(handle: string) {
+    if (this.#associations.getItem(handle)) {
+      await this.#associations.removeItem(handle);
 
       return true;
     }
@@ -867,12 +900,12 @@ export class RelyingParty {
     return false;
   }
 
-  #saveDiscoveredInformation(key: string, provider: Provider) {
-    this.#discoveries[key] = provider;
+  async #saveDiscoveredInformation(key: string, provider: Provider) {
+    await this.#discoveries.setItem(key, provider);
   }
 
-  #loadDiscoveredInformation(key: string,) {
-    return this.#discoveries[key] ?? null;
+  async #loadDiscoveredInformation(key: string,) {
+    return await this.#discoveries.getItem(key) ?? null;
   }
 }
 
@@ -1141,7 +1174,7 @@ async function resolveXri(xriUrl: string, hops = 1) {
       } catch (error) {
         return reject(error as ErrorMessage);
       }
-    // Endpoint has HTML
+      // Endpoint has HTML
     } else if (headers['content-type']?.includes('text/html')) {
       const providers = await resolveHtml(xriUrl, hops + 1, data).catch((error: ErrorMessage) => {
         reject(error);
@@ -1150,7 +1183,7 @@ async function resolveXri(xriUrl: string, hops = 1) {
       if (providers !== undefined) {
         return resolve(providers);
       }
-    // Endpoint redirects to other location for XRDS data
+      // Endpoint redirects to other location for XRDS data
     } else if (headers['x-xrds-location']) {
       let xrdsLocation = headers['x-xrds-location'] ?? headers['X-XRDS-Location'];
 

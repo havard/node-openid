@@ -14,7 +14,7 @@ Highlights and features include:
 - [Download](#download)
 - [Installation](#installation)
 - [Examples](#examples)
-- [API  ](#api)
+- [API](#api)
   * [RelyingParty  ](#relyingparty)
     + [Methods](#methods)
       - [authenticate()](#authenticate)
@@ -60,7 +60,7 @@ Examples including extensions can be found in the [`samples`](tree/master/sample
 ## API  
 ### RelyingParty  
 ```js
-const rp = new RelyingParty(returnUrl, realm, stateless, strict, extensions, validityChecks?)
+const rp = new RelyingParty(returnUrl, realm, stateless, strict, extensions, validityChecks?, associationStore?, discoveryStore?, nonceStore?)
 ```
 * `returnUrl`: string  
   * The URL to which openid authentication should return to.
@@ -74,6 +74,12 @@ const rp = new RelyingParty(returnUrl, realm, stateless, strict, extensions, val
   * Array of extensions, can be empty.
 * `validityChecks`: ValidityChecks
   * Refer to [ValidityChecks](#validitychecks)
+* `associationStore`: Store
+  * Refer to [Store](#store)
+* `discoveryStore`: Store
+  * Refer to [Store](#store)
+* `nonceStore`: Store
+  * Refer to [Store](#store)
 #### Methods
 ##### authenticate()
 ```js
@@ -113,6 +119,18 @@ getHeader(header: string): string;
 
 static getExtensionAlias(params: URLSearchParams, ns: string): string;
 ```
+### Store
+```js
+abstract class Store<Key extends string | number | symbol, Value> {
+    abstract getItem(key: Key): (Value | undefined) | Promise<Value | undefined>;
+    abstract setItem(key: Key, value: Value): this | Promise<this>;
+    abstract removeItem(key: Key): this | Promise<this>;
+    abstract getAll(): Record<Key, Value> | Promise<Record<Key, Value>>;
+}
+```
+Abstract class that is used for storing data, can be extended and supplied to the RelyingParty class to have custom data stores, like redis or other solutions.
+
+This can be especially handy if you have a multi-server solution.
 ### extensions
 ```js
 {
