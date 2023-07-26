@@ -20,6 +20,7 @@ Highlights and features include:
       - [authenticate()](#authenticate)
       - [verifyAssertion()](#verifyassertion)
   * [Extension](#extension)
+  * [Store](#store)
   * [extensions](#extensions)
 - [Types](#types)
   * [ValidityChecks](#validitychecks)
