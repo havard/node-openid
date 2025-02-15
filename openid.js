@@ -576,11 +576,11 @@ openid.associate = function (provider, callback, strict, algorithm) {
 
       openid.saveAssociation(provider, hashAlgorithm,
         data.assoc_handle, secret, data.expires_in * 1, function (error) {
-        if (error) {
-          return callback(error);
-        }
-        callback(null, data);
-      });
+          if (error) {
+            return callback(error);
+          }
+          callback(null, data);
+        });
     }
   });
 }
@@ -642,11 +642,11 @@ openid.authenticate = function (identifier, returnUrl, realm, immediate, statele
 
           return openid.saveDiscoveredInformation(useLocalIdentifierAsKey ? provider.localIdentifier : provider.claimedIdentifier,
             provider, function (error) {
-            if (error) {
-              return callback(error);
-            }
-            return callback(null, authUrl);
-          });
+              if (error) {
+                return callback(error);
+              }
+              return callback(null, authUrl);
+            });
         }
         else if (provider.version.indexOf('2.0') !== -1) {
           return callback(null, authUrl);
@@ -807,7 +807,7 @@ var _verifyReturnUrl = function (assertionUrl, originalReturnUrl) {
   // Any query parameters that are present in the "openid.return_to" URL MUST also be present 
   // with the same values in the URL of the HTTP request the RP received
   for (var param in receivedReturnUrl.query) {
-    if (hasOwnProperty(receivedReturnUrl.query, param) && receivedReturnUrl.query[param] !== assertionUrl.query[param]) {
+    if (hasOwnProperty(receivedReturnUrl.query, param) && receivedReturnUrl.query[param] !== originalReturnUrl.query[param]) {
       return false;
     }
   }
