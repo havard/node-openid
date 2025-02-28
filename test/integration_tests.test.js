@@ -35,7 +35,7 @@ test('Identifier without OpenID providers', () => {
 });
 
 test('Empty identifier', () => {
-  openid.discover('', 
+  openid.discover('',
     true,
     (error, providers) => {
       expect(providers).toBe(null);
@@ -82,20 +82,17 @@ test('Resolve LiveJournal user', () => {
     });
 });
 
-// 2023-11-12: This OpenID 1.1 provider seems to have gone away,
-// so disable this test for now.
-// test('Resolve OpenID 1.1 provider', done => {
-//   // FIXME: relying on a third party for back-level protocol support is brittle.
-//   openid.discover('http://pupeno.com/',
-//     true,
-//     (error, providers) => {
-//       expect(error).toBeFalsy();
-//       expect(providers).not.toBeNull();
-//       expect(providers).toHaveLength(1);
-//       expect(providers[0].version).toBe('http://openid.net/signon/1.1');
-//       done();
-//     });
-// });
+test('Resolve OpenID 1.1 provider', done => {
+  openid.discover('https://jessie.wordpress.com/',
+    true,
+    (error, providers) => {
+      expect(error).toBeFalsy();
+      expect(providers).not.toBeNull();
+      const provider = providers.find(p => p.version === 'http://openid.net/signon/1.1');
+      expect(provider).toBeTruthy();
+      done();
+    });
+});
 
 const performAssociation = (url, version, done) => {
   openid.discover(url,
@@ -103,8 +100,7 @@ const performAssociation = (url, version, done) => {
     (error, providers) => {
       expect(error).toBeFalsy();
       expect(providers).not.toBeNull();
-      expect(providers).toHaveLength(1);
-      const provider = providers[0];
+      const provider = providers.find(p => version ? p.version === version : true);
       openid.associate(provider, (error, result) => {
         expect(error).toBeFalsy();
         if (version) {
@@ -118,49 +114,48 @@ const performAssociation = (url, version, done) => {
 }
 
 test('Associate with https://login.ubuntu.com', done => {
-  performAssociation('https://login.ubuntu.com',null, done);
+  performAssociation('https://login.ubuntu.com', null, done);
 });
 
 test('Associate with http://omnifarious.livejournal.com/', done => {
   performAssociation('http://omnifarious.livejournal.com/', null, done);
 });
 
-test('Associate with https://matt.wordpress.com/', done => {
-  // FIXME: relying on a third party for back-level protocol support is brittle.
-  performAssociation('https://matt.wordpress.com/', 'http://openid.net/signon/1.1', done);
+test('Associate with https://www.peercraft.com/', done => {
+  performAssociation('https://www.peercraft.com/', 'http://openid.net/signon/1.1', done);
 });
 
 test('Immediate authentication with https://login.ubuntu.com', done => {
-  openid.authenticate('https://login.ubuntu.com', 
-  'http://example.com/verify', null, true, false, 
-  (error, url) => {
-    expect(error).toBeFalsy();
-    expect(url.indexOf('checkid_immediate')).not.toBe(-1);
-    done();
-  });
+  openid.authenticate('https://login.ubuntu.com',
+    'http://example.com/verify', null, true, false,
+    (error, url) => {
+      expect(error).toBeFalsy();
+      expect(url.indexOf('checkid_immediate')).not.toBe(-1);
+      done();
+    });
 });
 
 test('Setup authentication with https://login.ubuntu.com', done => {
-  openid.authenticate('https://login.ubuntu.com', 
-  'http://example.com/verify', null, false, false, 
-  (error, url) => {
-    expect(error).toBeFalsy();
-    expect(url.indexOf('checkid_setup')).not.toBe(-1);
-    done();
-  });
+  openid.authenticate('https://login.ubuntu.com',
+    'http://example.com/verify', null, false, false,
+    (error, url) => {
+      expect(error).toBeFalsy();
+      expect(url.indexOf('checkid_setup')).not.toBe(-1);
+      done();
+    });
 });
 
 test('Setup authentication with https://login.ubuntu.com using RelyingParty object', done => {
   const rp = new openid.RelyingParty(
-      'http://example.com/verify',
-      null,
-      false,
-      false,
-      null);
-  rp.authenticate('https://login.ubuntu.com', false, 
-  (error, url) => {
-    expect(error).toBeFalsy();
-    expect(url.indexOf('checkid_setup')).not.toBe(-1);
-    done();
-  });
+    'http://example.com/verify',
+    null,
+    false,
+    false,
+    null);
+  rp.authenticate('https://login.ubuntu.com', false,
+    (error, url) => {
+      expect(error).toBeFalsy();
+      expect(url.indexOf('checkid_setup')).not.toBe(-1);
+      done();
+    });
 });

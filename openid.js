@@ -26,6 +26,8 @@
  * vim: set sw=2 ts=2 et tw=80 : 
  */
 
+const { access } = require('fs');
+
 var Buffer = require('buffer').Buffer,
   crypto = require('crypto'),
   http = require('./http'),
@@ -489,10 +491,9 @@ var _createDiffieHellmanKeyExchange = function (algorithm) {
 }
 
 openid.associate = function (provider, callback, strict, algorithm) {
-  var params = _generateAssociationRequestParameters(provider.version, algorithm);
-  if (!_isDef(algorithm)) {
-    algorithm = 'DH-SHA256';
-  }
+  var associationParameters = _generateAssociationRequestParameters(provider.version, algorithm);
+  algorithm = associationParameters.algorithm;
+  var params = associationParameters.params;
 
   var dh = null;
   if (algorithm.indexOf('no-encryption') === -1) {
@@ -515,7 +516,7 @@ openid.associate = function (provider, callback, strict, algorithm) {
 
     data = _decodePostData(data);
 
-    if (data.error_code == 'unsupported-type' || !_isDef(data.ns)) {
+    if (data.error_code == 'unsupported-type' || (provider.version.indexOf('2.0') !== -1 && !_isDef(data.ns))) {
       if (algorithm == 'DH-SHA1') {
         if (strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0) {
           return callback({ message: 'Channel is insecure and no encryption method is supported by provider' }, null);
@@ -594,7 +595,8 @@ var _generateAssociationRequestParameters = function (version, algorithm) {
     params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
   }
 
-  if (algorithm == 'DH-SHA1') {
+  if (version.indexOf('2.0') === -1 || algorithm == 'DH-SHA1') {
+    algorithm = 'DH-SHA1';
     params['openid.assoc_type'] = 'HMAC-SHA1';
     params['openid.session_type'] = 'DH-SHA1';
   }
@@ -615,11 +617,12 @@ var _generateAssociationRequestParameters = function (version, algorithm) {
     params['openid.assoc_type'] = 'HMAC-SHA1';
   }
   else {
+    algorithm = 'DH-SHA256';
     params['openid.assoc_type'] = 'HMAC-SHA256';
     params['openid.session_type'] = 'DH-SHA256';
   }
 
-  return params;
+  return { algorithm: algorithm, params: params };
 }
 
 openid.authenticate = function (identifier, returnUrl, realm, immediate, stateless, callback, extensions, strict) {
