@@ -45,35 +45,45 @@ test('Authenticate with https://www.peercraft.com/', done => {
       client.get(url, { withCredentials: true }).then((res => {
         let loginForm = res.data.indexOf('action="/login/"');
         expect(loginForm).not.toBe(-1);
-        client.post('/login/', 'action=password&login=nodeopenidtest@gmail.com&password=' + Buffer.from('VGVoU2VjcmV0IQ==', 'base64').toString('utf-8')).then(res => {
-          let subscribeForm = res.data.indexOf('action="/portals/settings');
-          if (subscribeForm !== -1) {
-            const action = res.data.substring(subscribeForm + 8, res.data.indexOf('"', subscribeForm + 8));
-            const hashStart = res.data.indexOf('name="hash" value="');
-            expect(hashStart).not.toBe(-1);
-            const hash = res.data.substring(hashStart + 19, res.data.indexOf('"', hashStart + 19));
-            client.post(action, 'action=update&goto=0&hash=' + hash).then((res) => {
-              const linkIndex = res.data.indexOf('seconds, you may <a href="');
-              expect(linkIndex).not.toBe(-1);
-              const url = res.data.substring(linkIndex + 26, res.data.indexOf('"', linkIndex + 26));
+        client.post('/login/', 'action=password&login=nodeopenidtest@gmail.com&password=' +
+          Buffer.from('VGVoU2VjcmV0IQ==', 'base64').toString('utf-8')).then(res => {
+            let subscribeAction = between(res.data, 'action="/portals/settings', '"');
+            if (subscribeAction) {
+              const hash = between(res.data, 'name="hash" value="', '"');
+              client.post(subscribeAction, 'action=update&goto=0&hash=' + hash).then((res) => {
+                const url = between(res.data, 'seconds, you may <a href="', '"');
+                expect(url).not.toBeNull();
+                relyingParty.verifyAssertion(url, (error, result) => {
+                  expect(error).toBeFalsy();
+                  expect(result.authenticated).toBeTruthy();
+                  done();
+                });
+              });
+            }
+            else {
+              const url = between(res.data, 'seconds, you may <a href="', '"');
+              expect(url).not.toBeNull();
               relyingParty.verifyAssertion(url, (error, result) => {
                 expect(error).toBeFalsy();
                 expect(result.authenticated).toBeTruthy();
                 done();
               });
-            });
-          }
-          else {
-            const linkIndex = res.data.indexOf('seconds, you may <a href="');
-            expect(linkIndex).not.toBe(-1);
-            const url = res.data.substring(linkIndex + 26, res.data.indexOf('"', linkIndex + 26));
-            relyingParty.verifyAssertion(url, (error, result) => {
-              expect(error).toBeFalsy();
-              expect(result.authenticated).toBeTruthy();
-              done();
-            });
-          }
-        });
+            }
+          });
       }));
     });
 }, 15000);
+
+const between = (str, before, after) => {
+  const startIndex = str.indexOf(before);
+  if (startIndex == -1) {
+    return null;
+  }
+  const endIndex = str.indexOf(after, startIndex + before.length);
+  if (endIndex == -1) {
+    return null;
+  }
+
+  const url = str.substring(startIndex + before.length, endIndex);
+  return url;
+};
