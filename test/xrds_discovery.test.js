@@ -23,7 +23,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
 
-test('XRDS providers are parsed', () => {;
+test('XRDS providers are parsed', () => {
+    ;
     jest.mock('../http');
     const http = require('../http');
     http.get.mockImplementation((url, params, callback, redirects) => {

@@ -29,10 +29,9 @@ test('Cancelled verification does not authenticate', () => {
     openid.verifyAssertion(
         'http://host/?openid.mode=cancel' +
         '&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0',
-        'http://example.com/verify', 
+        'http://example.com/verify',
         (error, result) => {
             expect(error).toBeTruthy();
             expect(result).toBeFalsy();
         });
-  });
-  
+});

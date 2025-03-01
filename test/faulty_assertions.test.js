@@ -27,8 +27,8 @@ const openid = require('../openid');
 
 test('Wrong URL in assertion is rejected using functions', () => {
   openid.verifyAssertion(
-    'http://fu', 
-    'http://example.com/verify', 
+    'http://fu',
+    'http://example.com/verify',
     (error, result) => {
       expect(result).toBeFalsy();
       expect(error.message).toBe('Invalid return URL');
@@ -38,11 +38,11 @@ test('Wrong URL in assertion is rejected using functions', () => {
 
 test('Wrong URL in assertion is rejected using RelyingParty API', () => {
   const rp = new openid.RelyingParty(
-      'http://example.com/verify',
-      null,
-      false,
-      false,
-      null);
+    'http://example.com/verify',
+    null,
+    false,
+    false,
+    null);
 
   rp.verifyAssertion('http://fu', (error, result) => {
     expect(result).toBeFalsy();
